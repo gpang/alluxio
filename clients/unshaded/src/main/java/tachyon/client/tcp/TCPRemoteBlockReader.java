@@ -40,6 +40,7 @@ public final class TCPRemoteBlockReader implements RemoteBlockReader {
     InetSocketAddress address = new InetSocketAddress(host, port);
     SocketChannel socketChannel = SocketChannel.open();
     try {
+      long startMillis = System.currentTimeMillis();
       socketChannel.connect(address);
 
       LOG.info("Connected to remote machine " + address);
@@ -66,6 +67,8 @@ public final class TCPRemoteBlockReader implements RemoteBlockReader {
         return null;
       }
 
+      long endMillis = System.currentTimeMillis();
+      LOG.info("TCP readRemoteBlock duration: {} ms", endMillis - startMillis);
       return recvMsg.getReadOnlyData();
     } finally {
       socketChannel.close();

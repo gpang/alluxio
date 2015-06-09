@@ -83,6 +83,7 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
     InetSocketAddress address = new InetSocketAddress(host, port);
 
     try {
+      long startMillis = System.currentTimeMillis();
       ChannelFuture f = mClientBootstrap.connect(address).sync();
 
       LOG.info("Connected to remote machine " + address);
@@ -97,6 +98,9 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
       if (response.getType() == RPCMessage.Type.RPC_BLOCK_RESPONSE) {
         RPCBlockResponse blockResponse = (RPCBlockResponse) response;
         LOG.info("Data " + blockId + " from remote machine " + address + " received");
+
+        long endMillis = System.currentTimeMillis();
+        LOG.info("Netty readRemoteBlock duration: {} ms", endMillis - startMillis);
         return blockResponse.getPayloadDataBuffer().getReadOnlyByteBuffer();
       }
     } catch (Exception e) {
