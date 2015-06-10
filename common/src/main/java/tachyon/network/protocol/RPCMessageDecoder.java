@@ -40,8 +40,13 @@ public class RPCMessageDecoder extends MessageToMessageDecoder<ByteBuf> {
   public void decode(ChannelHandlerContext ctx,
                      ByteBuf in,
                      List<Object> out) {
+    long startMillis = System.currentTimeMillis();
     RPCMessage.Type type = RPCMessage.Type.decode(in);
+    long endMillisA = System.currentTimeMillis();
     RPCMessage message = RPCMessage.decodeMessage(type, in);
     out.add(message);
+    long endMillisB = System.currentTimeMillis();
+    LOG.info("Netty decode: {} ms [{}, {}]", endMillisB - startMillis, endMillisA - startMillis,
+        endMillisB - endMillisA);
   }
 }
