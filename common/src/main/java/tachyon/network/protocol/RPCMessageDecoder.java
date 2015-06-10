@@ -41,7 +41,6 @@ public class RPCMessageDecoder extends MessageToMessageDecoder<ByteBuf> {
                      ByteBuf in,
                      List<Object> out) {
     long startMillis = System.currentTimeMillis();
-    LOG.info("Netty decode startTime: {}", startMillis);
     RPCMessage.Type type = RPCMessage.Type.decode(in);
     RPCMessage message = RPCMessage.decodeMessage(type, in);
     out.add(message);
