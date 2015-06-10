@@ -94,7 +94,7 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
 
       RPCResponse response = listener.get(1, TimeUnit.SECONDS);
       long endMillis = System.currentTimeMillis();
-      LOG.info("Netty response.get startTime: {}", endMillis);
+      LOG.info("Netty write startTime: {} endTime: {}", startMillis, endMillis);
       f.channel().close().sync();
 
       if (response.getType() == RPCMessage.Type.RPC_BLOCK_RESPONSE) {
