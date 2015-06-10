@@ -123,7 +123,10 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
     } catch (Exception e) {
       LOG.error("exception in netty client: " + e.getMessage());
     } finally {
+      long startMillis = System.currentTimeMillis();
       mWorkerGroup.shutdownGracefully(0, 0, TimeUnit.SECONDS);
+      long endMillis = System.currentTimeMillis();
+      LOG.info("Netty shutdownGracefully duration: {} ms", endMillis - startMillis);
     }
 
     return null;
