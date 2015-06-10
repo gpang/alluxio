@@ -55,6 +55,7 @@ public final class ClientHandler extends SimpleChannelInboundHandler<RPCMessage>
   @Override
   public void channelRead0(final ChannelHandlerContext ctx, final RPCMessage msg)
       throws IOException {
+    LOG.info("Netty handler startTime: {}", System.currentTimeMillis());
     switch (msg.getType()) {
       case RPC_BLOCK_RESPONSE:
         handleBlockResponse(ctx, (RPCBlockResponse) msg);
