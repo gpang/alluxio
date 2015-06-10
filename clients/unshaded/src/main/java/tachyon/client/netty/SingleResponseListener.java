@@ -35,7 +35,6 @@ public final class SingleResponseListener implements ClientHandler.ResponseListe
 
   @Override
   public void onResponseReceived(RPCResponse response) {
-    LOG.info("Netty listener startTime: {}", System.currentTimeMillis());
     mResponse.set(response);
   }
 

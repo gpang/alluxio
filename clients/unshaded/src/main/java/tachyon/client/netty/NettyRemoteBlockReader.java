@@ -94,7 +94,8 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
 
       RPCResponse response = listener.get(1, TimeUnit.SECONDS);
       long endMillis = System.currentTimeMillis();
-      LOG.info("Netty write startTime: {} endTime: {}", startMillis, endMillis);
+      LOG.info("Netty write-response {} ms startTime: {} endTime: {}", endMillis - startMillis,
+          startMillis, endMillis);
       f.channel().close().sync();
 
       if (response.getType() == RPCMessage.Type.RPC_BLOCK_RESPONSE) {
@@ -102,7 +103,6 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
         LOG.info("Data " + blockId + " from remote machine " + address + " received");
 
         ByteBuffer readOnly = blockResponse.getPayloadDataBuffer().getReadOnlyByteBuffer();
-        LOG.info("Netty readRemoteBlock write-response: {} ms", endMillis - startMillis);
         return readOnly;
       }
     } catch (Exception e) {
