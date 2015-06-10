@@ -40,12 +40,12 @@ public final class TCPRemoteBlockReader implements RemoteBlockReader {
     InetSocketAddress address = new InetSocketAddress(host, port);
     SocketChannel socketChannel = SocketChannel.open();
     try {
-      long startMillis = System.currentTimeMillis();
       socketChannel.connect(address);
 
       LOG.info("Connected to remote machine " + address);
       DataServerMessage sendMsg =
           DataServerMessage.createBlockRequestMessage(blockId, offset, length);
+      long startMillis = System.currentTimeMillis();
       while (!sendMsg.finishSending()) {
         sendMsg.send(socketChannel);
       }
@@ -60,6 +60,7 @@ public final class TCPRemoteBlockReader implements RemoteBlockReader {
           LOG.warn("Read nothing");
         }
       }
+      long endMillis = System.currentTimeMillis();
       LOG.info("Data " + blockId + " from remote machine " + address + " received");
 
       if (recvMsg.getBlockId() < 0) {
@@ -67,8 +68,7 @@ public final class TCPRemoteBlockReader implements RemoteBlockReader {
         return null;
       }
 
-      long endMillis = System.currentTimeMillis();
-      LOG.info("TCP readRemoteBlock duration: {} ms", endMillis - startMillis);
+      LOG.info("TCP readRemoteBlock write-response: {} ms", endMillis - startMillis);
       return recvMsg.getReadOnlyData();
     } finally {
       socketChannel.close();

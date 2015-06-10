@@ -66,25 +66,15 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
 
   // TODO: Creating a new remote block reader may be expensive, so consider a connection pool.
   public NettyRemoteBlockReader() {
-    long startMillis = System.currentTimeMillis();
     mTachyonConf = new TachyonConf();
-    long endMillisA = System.currentTimeMillis();
     mChannelType =
         mTachyonConf.getEnum(Constants.WORKER_NETWORK_NETTY_CHANNEL, ChannelType.defaultType());
-    long endMillisB = System.currentTimeMillis();
     final int workerThreadCount = mTachyonConf.getInt(Constants.WORKER_NETTY_WORKER_THREADS, 1);
     mWorkerGroup =
         NettyUtils.createEventLoop(mChannelType, workerThreadCount, "netty-client-worker-%d");
-    long endMillisC = System.currentTimeMillis();
 
     mClientBootstrap = createClientBootstrap();
-    long endMillisD = System.currentTimeMillis();
     mHandler = new ClientHandler();
-
-    long endMillisE = System.currentTimeMillis();
-    LOG.info("Netty constructor duration: {} ms [{}, {}, {}, {}, {}]", endMillisE - startMillis,
-        endMillisA - startMillis, endMillisB - endMillisA, endMillisC - endMillisB,
-        endMillisD - endMillisC, endMillisE - endMillisD);
   }
 
   @Override
@@ -93,40 +83,31 @@ public final class NettyRemoteBlockReader implements RemoteBlockReader {
     InetSocketAddress address = new InetSocketAddress(host, port);
 
     try {
-      long startMillis = System.currentTimeMillis();
       ChannelFuture f = mClientBootstrap.connect(address).sync();
-      long endMillisA = System.currentTimeMillis();
 
       LOG.info("Connected to remote machine " + address);
       Channel channel = f.channel();
       SingleResponseListener listener = new SingleResponseListener();
       mHandler.addListener(listener);
+      long startMillis = System.currentTimeMillis();
       channel.writeAndFlush(new RPCBlockRequest(blockId, offset, length));
-      long endMillisB = System.currentTimeMillis();
 
       RPCResponse response = listener.get(1, TimeUnit.SECONDS);
-      long endMillisC = System.currentTimeMillis();
+      long endMillis = System.currentTimeMillis();
       f.channel().close().sync();
-      long endMillisD = System.currentTimeMillis();
 
       if (response.getType() == RPCMessage.Type.RPC_BLOCK_RESPONSE) {
         RPCBlockResponse blockResponse = (RPCBlockResponse) response;
         LOG.info("Data " + blockId + " from remote machine " + address + " received");
 
         ByteBuffer readOnly = blockResponse.getPayloadDataBuffer().getReadOnlyByteBuffer();
-        long endMillisE = System.currentTimeMillis();
-        LOG.info("Netty readRemoteBlock duration: {} ms [{}, {}, {}, {}, {}]",
-            endMillisE - startMillis, endMillisA - startMillis, endMillisB - endMillisA,
-            endMillisC - endMillisB, endMillisD - endMillisC, endMillisE - endMillisD);
+        LOG.info("Netty readRemoteBlock write-response: {} ms", endMillis - startMillis);
         return readOnly;
       }
     } catch (Exception e) {
       LOG.error("exception in netty client: " + e.getMessage());
     } finally {
-      long startMillis = System.currentTimeMillis();
       mWorkerGroup.shutdownGracefully(0, 0, TimeUnit.SECONDS);
-      long endMillis = System.currentTimeMillis();
-      LOG.info("Netty shutdownGracefully duration: {} ms", endMillis - startMillis);
     }
 
     return null;
