@@ -68,8 +68,7 @@ public final class TCPRemoteBlockReader implements RemoteBlockReader {
         return null;
       }
 
-      LOG.info("TCP write-response {} ms startTime: {} endTime: {}", endMillis - startMillis,
-          startMillis, endMillis);
+      LOG.info("TCP write-response {} ms", endMillis - startMillis);
       return recvMsg.getReadOnlyData();
     } finally {
       socketChannel.close();
