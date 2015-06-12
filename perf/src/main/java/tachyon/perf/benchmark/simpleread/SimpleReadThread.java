@@ -95,6 +95,14 @@ public class SimpleReadThread extends PerfThread {
             ListGenerator.generateSequenceReadFiles(mId, PerfConf.get().THREADS_NUM, filesNum,
                 candidates);
       }
+
+      // warmup
+      run();
+      run();
+      run();
+      LOG.info("warmup done!");
+      mThroughput = 0;
+
     } catch (IOException e) {
       LOG.error("Failed to setup thread, task " + mTaskId + " - thread " + mId, e);
       return false;
