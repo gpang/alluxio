@@ -2,7 +2,7 @@
 <configuration>
   <property>
     <name>files.per.thread</name>
-    <value>2</value>
+    <value>32</value>
     <description>the number of files to write for each write thread</description>
   </property>
   <property>
@@ -12,7 +12,7 @@
   </property>
   <property>
     <name>file.length.bytes</name>
-    <value>134217728</value>
+    <value>67108864</value>
     <description>the file size of write test, in bytes</description>
   </property>
   <property>
