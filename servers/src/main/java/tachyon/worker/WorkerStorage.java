@@ -48,6 +48,7 @@ import tachyon.Pair;
 import tachyon.StorageDirId;
 import tachyon.StorageLevelAlias;
 import tachyon.Users;
+import tachyon.client.LocalBlockOutStream;
 import tachyon.conf.TachyonConf;
 import tachyon.master.MasterClient;
 import tachyon.thrift.BlockInfoException;
@@ -490,7 +491,7 @@ public class WorkerStorage {
    * Notify the worker the block is cached.
    *
    * This is called remotely from {@link tachyon.client.TachyonFS#cacheBlock(long)} which is only
-   * ever called from {@link tachyon.client.BlockOutStream#close()} (though it's a public api so
+   * ever called from {@link LocalBlockOutStream#close()} (though it's a public api so
    * anyone could call it). There are a few interesting preconditions for this to work.
    *
    * 1) Client process writes to files locally under a tachyon defined temp directory. 2) Worker
