@@ -32,12 +32,12 @@ public interface DataServer extends Closeable {
 
   class Factory {
     public static DataServer createDataServer(final InetSocketAddress dataAddress,
-        final BlocksLocker blockLocker, TachyonConf conf) {
+        final WorkerStorage workerStorage, TachyonConf conf) {
       try {
         return CommonUtils.createNewClassInstance(
             conf.getClass(Constants.WORKER_DATA_SERVER, ServerConstants.WORKER_DATA_SERVER_CLASS),
-            new Class[] { InetSocketAddress.class, BlocksLocker.class, TachyonConf.class },
-            new Object[] { dataAddress, blockLocker, conf });
+            new Class[] { InetSocketAddress.class, WorkerStorage.class, TachyonConf.class },
+            new Object[] { dataAddress, workerStorage, conf });
       } catch (Exception e) {
         throw Throwables.propagate(e);
       }

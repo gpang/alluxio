@@ -31,6 +31,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 import tachyon.Constants;
+import tachyon.Users;
 import tachyon.conf.TachyonConf;
 import tachyon.network.protocol.RPCBlockRequest;
 import tachyon.network.protocol.RPCBlockResponse;
@@ -42,6 +43,7 @@ import tachyon.network.protocol.databuffer.DataByteBuffer;
 import tachyon.network.protocol.databuffer.DataFileChannel;
 import tachyon.worker.BlockHandler;
 import tachyon.worker.BlocksLocker;
+import tachyon.worker.WorkerStorage;
 import tachyon.worker.tiered.StorageDir;
 
 /**
@@ -52,12 +54,14 @@ import tachyon.worker.tiered.StorageDir;
 public final class DataServerHandler extends SimpleChannelInboundHandler<RPCMessage> {
   private static final Logger LOG = LoggerFactory.getLogger(Constants.LOGGER_TYPE);
 
+  private final WorkerStorage mWorkerStorage;
   private final BlocksLocker mLocker;
   private final TachyonConf mTachyonConf;
   private final FileTransferType mTransferType;
 
-  public DataServerHandler(final BlocksLocker locker, TachyonConf tachyonConf) {
-    mLocker = locker;
+  public DataServerHandler(WorkerStorage workerStorage, TachyonConf tachyonConf) {
+    mWorkerStorage = workerStorage;
+    mLocker = new BlocksLocker(mWorkerStorage, Users.DATASERVER_USER_ID);
     mTachyonConf = tachyonConf;
     mTransferType =
         mTachyonConf.getEnum(Constants.WORKER_NETTY_FILE_TRANSFER_TYPE, FileTransferType.TRANSFER);
@@ -140,8 +144,8 @@ public final class DataServerHandler extends SimpleChannelInboundHandler<RPCMess
 
 
   /**
-   * Returns the appropriate DataBuffer representing the data to send, depending on the
-   * configurable transfer type.
+   * Returns the appropriate DataBuffer representing the data to send, depending on the configurable
+   * transfer type.
    *
    * @param req The initiating RPCBlockRequest
    * @param handler The BlockHandler for the block to read
