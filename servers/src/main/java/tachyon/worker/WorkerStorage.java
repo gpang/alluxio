@@ -925,6 +925,14 @@ public class WorkerStorage {
     return storageDir.getUserTempFilePath(userId, blockId);
   }
 
+  public String getTempBlockLocation(long userId, long blockId) throws FileDoesNotExistException {
+    StorageDir storageDir = mTempBlockLocation.get(new Pair<Long, Long>(userId, blockId));
+    if (storageDir == null) {
+      throw new FileDoesNotExistException("Temporary block file doesn't exist! blockId:" + blockId);
+    }
+    return storageDir.getUserTempFilePath(userId, blockId);
+  }
+
   /**
    * Request space from the worker, and expecting worker return the appropriate StorageDir which has
    * enough space for the requested space size

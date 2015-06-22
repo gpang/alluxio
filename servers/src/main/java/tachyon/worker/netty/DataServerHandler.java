@@ -16,7 +16,9 @@
 package tachyon.worker.netty;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 import org.slf4j.Logger;
@@ -35,12 +37,15 @@ import tachyon.Users;
 import tachyon.conf.TachyonConf;
 import tachyon.network.protocol.RPCBlockRequest;
 import tachyon.network.protocol.RPCBlockResponse;
+import tachyon.network.protocol.RPCBlockWriteRequest;
+import tachyon.network.protocol.RPCBlockWriteResponse;
 import tachyon.network.protocol.RPCMessage;
 import tachyon.network.protocol.RPCRequest;
 import tachyon.network.protocol.RPCResponse;
 import tachyon.network.protocol.databuffer.DataBuffer;
 import tachyon.network.protocol.databuffer.DataByteBuffer;
 import tachyon.network.protocol.databuffer.DataFileChannel;
+import tachyon.util.CommonUtils;
 import tachyon.worker.BlockHandler;
 import tachyon.worker.BlocksLocker;
 import tachyon.worker.WorkerStorage;
@@ -73,6 +78,9 @@ public final class DataServerHandler extends SimpleChannelInboundHandler<RPCMess
     switch (msg.getType()) {
       case RPC_BLOCK_REQUEST:
         handleBlockRequest(ctx, (RPCBlockRequest) msg);
+        break;
+      case RPC_BLOCK_WRITE_REQUEST:
+        handleBlockWriteRequest(ctx, (RPCBlockWriteRequest) msg);
         break;
       default:
         throw new IllegalArgumentException("No handler implementation for rpc msg type: "
@@ -121,6 +129,58 @@ public final class DataServerHandler extends SimpleChannelInboundHandler<RPCMess
       }
     } finally {
       mLocker.unlock(blockId, lockId);
+    }
+  }
+
+  // TODO: This write request handler is very simple in order to be stateless. Therefore, the block
+  // file is opened and closed for every request. If this is too slow, then this handler should be
+  // optimized to keep state.
+  private void handleBlockWriteRequest(final ChannelHandlerContext ctx,
+      final RPCBlockWriteRequest req) throws IOException {
+    final long userId = req.getUserId();
+    final long blockId = req.getBlockId();
+    final long offset = req.getOffset();
+    final long length = req.getLength();
+    final DataBuffer data = req.getPayloadDataBuffer();
+
+    try {
+      req.validate();
+      ByteBuffer buffer = data.getReadOnlyByteBuffer();
+      if (buffer.remaining() <= 0) {
+        throw new IOException("Empty buffer to write.");
+      }
+
+      String filePath = "";
+      if (offset == 0) {
+        // This is the first write to the block, so create the temp block file. The file will only
+        // be created if the first write starts at offset 0.
+        filePath = mWorkerStorage.requestBlockLocation(userId, blockId, length);
+        CommonUtils.createBlockPath(filePath);
+      } else {
+        filePath = mWorkerStorage.getTempBlockLocation(userId, blockId);
+        if (!mWorkerStorage.requestSpace(userId, blockId, length)) {
+          throw new IOException("Not enough space on local worker: userId(" + userId + ") blockId("
+              + blockId + ") requestSize(" + length + ")");
+        }
+      }
+
+      // Open the local file and write to it.
+      RandomAccessFile localFile = new RandomAccessFile(filePath, "rw");
+      FileChannel fileChannel = localFile.getChannel();
+      MappedByteBuffer out = fileChannel.map(FileChannel.MapMode.READ_WRITE, offset, length);
+      out.put(buffer);
+      fileChannel.close();
+      localFile.close();
+
+      ChannelFuture future =
+          ctx.writeAndFlush(new RPCBlockWriteResponse(userId, blockId, offset, length));
+      future.addListener(ChannelFutureListener.CLOSE);
+    } catch (Exception e) {
+      LOG.error("Error writing remote block : " + e.getMessage(), e);
+      // TODO: better error response messages.
+      RPCBlockWriteResponse resp = new RPCBlockWriteResponse(-userId, -blockId, -offset, -length);
+      ChannelFuture future = ctx.writeAndFlush(resp);
+      future.addListener(ChannelFutureListener.CLOSE);
     }
   }
 
