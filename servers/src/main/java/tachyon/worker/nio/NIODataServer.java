@@ -34,10 +34,12 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Throwables;
 
 import tachyon.Constants;
+import tachyon.Users;
 import tachyon.conf.TachyonConf;
 import tachyon.worker.BlocksLocker;
 import tachyon.worker.DataServer;
 import tachyon.worker.DataServerMessage;
+import tachyon.worker.WorkerStorage;
 import tachyon.worker.tiered.StorageDir;
 
 /**
@@ -75,15 +77,16 @@ public class NIODataServer implements Runnable, DataServer {
    * Create a data server with direct access to worker storage.
    *
    * @param address The address of the data server.
-   * @param locker The lock system for lock blocks.
+   * @param workerStorage the local worker storage.
+   * @param tachyonConf the TachyonConf
    */
-  public NIODataServer(final InetSocketAddress address, final BlocksLocker locker,
+  public NIODataServer(final InetSocketAddress address, final WorkerStorage workerStorage,
       TachyonConf tachyonConf) {
     LOG.info("Starting DataServer @ " + address);
     mTachyonConf = tachyonConf;
     TachyonConf.assertValidPort(address, mTachyonConf);
     mAddress = address;
-    mBlockLocker = locker;
+    mBlockLocker = new BlocksLocker(workerStorage, Users.DATASERVER_USER_ID);
     try {
       mSelector = initSelector();
       mListenerThread = new Thread(this);

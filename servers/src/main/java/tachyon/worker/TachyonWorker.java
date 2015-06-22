@@ -151,7 +151,7 @@ public class TachyonWorker implements Runnable {
   private final int mPort;
   private final int mDataPort;
   private final ExecutorService mExecutorService = Executors.newFixedThreadPool(1,
-      ThreadFactoryUtils.daemon("heartbeat-worker-%d"));
+      ThreadFactoryUtils.build("heartbeat-worker-%d", true));
   private final TachyonConf mTachyonConf;
 
   /**
@@ -184,8 +184,7 @@ public class TachyonWorker implements Runnable {
     // In a production or any real deployment setup, port '0' should not be used as it will make
     // deployment more complicated.
     InetSocketAddress dataAddress = new InetSocketAddress(workerAddress.getHostName(), dataPort);
-    BlocksLocker blockLocker = new BlocksLocker(mWorkerStorage, Users.DATASERVER_USER_ID);
-    mDataServer = DataServer.Factory.createDataServer(dataAddress, blockLocker, mTachyonConf);
+    mDataServer = DataServer.Factory.createDataServer(dataAddress, mWorkerStorage, mTachyonConf);
     mDataPort = mDataServer.getPort();
 
     mHeartbeatThread = new Thread(this);
