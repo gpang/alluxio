@@ -58,6 +58,11 @@ public class SimpleReadThread extends PerfThread {
     long timeMs = System.currentTimeMillis();
     long readBytes = 0;
     mSuccess = true;
+    // TODO: just for testing!
+    if (mTaskId != 0) {
+      mThroughput = 0;
+      return;
+    }
     for (String fileName : mReadFiles) {
       try {
         readBytes += Operators.readSingleFile(mFileSystem, fileName, mBufferSize, mReadType);

@@ -59,6 +59,11 @@ public class SimpleWriteThread extends PerfThread {
     long timeMs = System.currentTimeMillis();
     long writeBytes = 0;
     mSuccess = true;
+    // TODO: just for testing!
+    if (mTaskId != 0) {
+      mThroughput = 0;
+      return;
+    }
     for (String fileName : mWriteFiles) {
       try {
         Operators.writeSingleFile(mFileSystem, fileName, mFileLength, mBlockSize, mBufferSize,
