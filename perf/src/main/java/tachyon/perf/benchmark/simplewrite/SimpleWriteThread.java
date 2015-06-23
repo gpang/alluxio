@@ -89,6 +89,16 @@ public class SimpleWriteThread extends PerfThread {
       String writeDir = taskConf.getProperty("write.dir");
       int filesNum = taskConf.getIntProperty("files.per.thread");
       mWriteFiles = ListGenerator.generateWriteFiles(mId, filesNum, writeDir);
+      run();
+      for (String fileName : mWriteFiles) {
+        mFileSystem.delete(fileName, true);
+      }
+      run();
+      for (String fileName : mWriteFiles) {
+        mFileSystem.delete(fileName, true);
+      }
+      LOG.info("warmup done!");
+      mThroughput = 0;
     } catch (IOException e) {
       LOG.error("Failed to setup thread, task " + mTaskId + " - thread " + mId, e);
       return false;
