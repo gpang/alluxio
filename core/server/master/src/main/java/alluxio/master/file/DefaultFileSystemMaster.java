@@ -41,6 +41,7 @@ import alluxio.master.ProtobufUtils;
 import alluxio.master.block.BlockId;
 import alluxio.master.block.BlockMaster;
 import alluxio.master.file.async.AsyncPersistHandler;
+import alluxio.master.file.audit.AuditLogger;
 import alluxio.master.file.meta.FileSystemMasterView;
 import alluxio.master.file.meta.Inode;
 import alluxio.master.file.meta.InodeDirectory;
@@ -87,6 +88,7 @@ import alluxio.proto.journal.File.RenameEntry;
 import alluxio.proto.journal.File.SetAttributeEntry;
 import alluxio.proto.journal.File.StringPairEntry;
 import alluxio.proto.journal.Journal.JournalEntry;
+import alluxio.security.authentication.AuthenticatedClientUser;
 import alluxio.security.authorization.Mode;
 import alluxio.thrift.CommandType;
 import alluxio.thrift.FileSystemCommand;
@@ -300,6 +302,8 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
 
   private Future<List<AlluxioURI>> mStartupConsistencyCheck;
 
+  private final AuditLogger mAuditLogger;
+
   /**
    * Creates a new instance of {@link DefaultFileSystemMaster}.
    *
@@ -336,7 +340,8 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
     mAsyncPersistHandler = AsyncPersistHandler.Factory.create(new FileSystemMasterView(this));
     mPermissionChecker = new PermissionChecker(mInodeTree);
     mUfsAbsentPathCache = UfsAbsentPathCache.Factory.create(mMountTable);
-
+    mAuditLogger = new AuditLogger();
+    LOG.info("Audit log enabled: {}", mAuditLogger.isEnabled());
     Metrics.registerGauges(this, mUfsManager);
   }
 
@@ -344,8 +349,7 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
   public Map<String, TProcessor> getServices() {
     Map<String, TProcessor> services = new HashMap<>();
     services.put(Constants.FILE_SYSTEM_MASTER_CLIENT_SERVICE_NAME,
-        new FileSystemMasterClientService.Processor<>(
-            new FileSystemMasterClientServiceHandler(this)));
+        new FileSystemMasterClientServiceProcessor(new FileSystemMasterClientServiceHandler(this)));
     services.put(Constants.FILE_SYSTEM_MASTER_WORKER_SERVICE_NAME,
         new FileSystemMasterWorkerService.Processor<>(
             new FileSystemMasterWorkerServiceHandler(this)));
@@ -651,9 +655,18 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       loadMetadataIfNotExistAndJournal(inodePath,
           LoadMetadataOptions.defaults().setCreateAncestors(true), journalContext);
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
-      return inodePath.getInode().getId();
+      long ret = inodePath.getInode().getId();
+      mAuditLogger
+          .log(true, AuthenticatedClientUser.getClientUser(), "n/a", "getFileId", path.toString(),
+              inodePath.getInode(), null);
+      return ret;
     } catch (InvalidPathException | FileDoesNotExistException e) {
       return IdUtils.INVALID_FILE_ID;
+    } catch (AccessControlException e) {
+      mAuditLogger
+          .log(false, AuthenticatedClientUser.getClientUser(), "n/a", "getFileId", path.toString(),
+              null, null);
+      throw e;
     }
   }
 
@@ -684,7 +697,12 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       loadMetadataIfNotExistAndJournal(inodePath,
           LoadMetadataOptions.defaults().setCreateAncestors(true), journalContext);
       ensureFullPathAndUpdateCache(inodePath);
-      return getFileInfoInternal(inodePath);
+      FileInfo ret = getFileInfoInternal(inodePath);
+      logAudit(true, "getFileInfo", path.toString(), inodePath.getInode(), null);
+      return ret;
+    } catch (AccessControlException e) {
+      logAudit(false, "getFileInfo", path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -773,7 +791,11 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
         ret.add(getFileInfoInternal(inodePath));
       }
       Metrics.FILE_INFOS_GOT.inc();
+      logAudit(true, "listStatus", path.toString(), inodePath.getInode(), null);
       return ret;
+    } catch (AccessControlException e) {
+      logAudit(false, "listStatus", path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -838,8 +860,12 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
           }
         }
       }
+      logAudit(true, "checkConsistency", path.toString(), parent.getInode(), null);
+      return inconsistentUris;
+    } catch (AccessControlException e) {
+      logAudit(false, "checkConsistency", path.toString(), null, null);
+      throw e;
     }
-    return inconsistentUris;
   }
 
   /**
@@ -891,6 +917,10 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mPermissionChecker.checkPermission(Mode.Bits.WRITE, inodePath);
       // Even readonly mount points should be able to complete a file, for UFS reads in CACHE mode.
       completeFileAndJournal(inodePath, options, journalContext);
+      logAudit(true, "completeFile", path.toString(), inodePath.getInode(), null);
+    } catch (AccessControlException e) {
+      logAudit(false, "completeFile", path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -1011,7 +1041,16 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mPermissionChecker.checkParentPermission(Mode.Bits.WRITE, inodePath);
       mMountTable.checkUnderWritableMountPoint(path);
       createFileAndJournal(inodePath, options, journalContext);
-      return inodePath.getInode().getId();
+      long ret = inodePath.getInode().getId();
+      mAuditLogger
+          .log(true, AuthenticatedClientUser.getClientUser(), "n/a", "createFile", path.toString(),
+              inodePath.getInode(), null);
+      return ret;
+    } catch (AccessControlException e) {
+      mAuditLogger
+          .log(false, AuthenticatedClientUser.getClientUser(), "n/a", "createFile", path.toString(),
+              null, null);
+      throw e;
     }
   }
 
@@ -1109,7 +1148,16 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
     try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(path, InodeTree.LockMode.WRITE)) {
       mPermissionChecker.checkPermission(Mode.Bits.WRITE, inodePath);
       Metrics.NEW_BLOCKS_GOT.inc();
-      return inodePath.getInodeFile().getNewBlockId();
+      long ret = inodePath.getInodeFile().getNewBlockId();
+      mAuditLogger
+          .log(true, AuthenticatedClientUser.getClientUser(), "n/a", "getNewBlockIdForFile",
+              path.toString(), inodePath.getInode(), null);
+      return ret;
+    } catch (AccessControlException e) {
+      mAuditLogger
+          .log(false, AuthenticatedClientUser.getClientUser(), "n/a", "getNewBlockIdForFile",
+              path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -1165,6 +1213,14 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mPermissionChecker.checkParentPermission(Mode.Bits.WRITE, inodePath);
       mMountTable.checkUnderWritableMountPoint(path);
       deletedInodes = deleteAndJournal(inodePath, options, journalContext);
+      mAuditLogger
+          .log(true, AuthenticatedClientUser.getClientUser(), "n/a", "delete", path.toString(),
+              inodePath.getInode(), null);
+    } catch (AccessControlException e) {
+      mAuditLogger
+          .log(false, AuthenticatedClientUser.getClientUser(), "n/a", "delete", path.toString(),
+              null, null);
+      throw e;
     }
     deleteInodeBlocks(deletedInodes);
   }
@@ -1439,7 +1495,15 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
       List<FileBlockInfo> ret = getFileBlockInfoListInternal(inodePath);
       Metrics.FILE_BLOCK_INFOS_GOT.inc();
+      mAuditLogger
+          .log(true, AuthenticatedClientUser.getClientUser(), "n/a", "getFileBlockInfoList",
+              path.toString(), inodePath.getInode(), null);
       return ret;
+    } catch (AccessControlException e) {
+      mAuditLogger
+          .log(false, AuthenticatedClientUser.getClientUser(), "n/a", "getFileBlockInfoList",
+              path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -1610,7 +1674,12 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mPermissionChecker.checkParentPermission(Mode.Bits.WRITE, inodePath);
       mMountTable.checkUnderWritableMountPoint(path);
       createDirectoryAndJournal(inodePath, options, journalContext);
-      return inodePath.getInode().getId();
+      long ret = inodePath.getInode().getId();
+      logAudit(true, "createDirectory", path.toString(), inodePath.getInode(), null);
+      return ret;
+    } catch (AccessControlException e) {
+      logAudit(false, "createDirectory", path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -1694,7 +1763,11 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mMountTable.checkUnderWritableMountPoint(srcPath);
       mMountTable.checkUnderWritableMountPoint(dstPath);
       renameAndJournal(srcInodePath, dstInodePath, options, journalContext);
+      logAudit(true, "rename", srcPath.toString(), srcInodePath.getInode(), dstPath.toString());
       LOG.debug("Renamed {} to {}", srcPath, dstPath);
+    } catch (AccessControlException e) {
+      logAudit(false, "rename", srcPath.toString(), null, dstPath.toString());
+      throw e;
     }
   }
 
@@ -2002,6 +2075,14 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
         LockedInodePath inodePath = mInodeTree.lockFullInodePath(path, InodeTree.LockMode.WRITE)) {
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
       freeAndJournal(inodePath, options, journalContext);
+      mAuditLogger
+          .log(true, AuthenticatedClientUser.getClientUser(), "n/a", "free", path.toString(),
+              inodePath.getInode(), null);
+    } catch (AccessControlException e) {
+      mAuditLogger
+          .log(false, AuthenticatedClientUser.getClientUser(), "n/a", "free", path.toString(), null,
+              null);
+      throw e;
     }
   }
 
@@ -2144,7 +2225,12 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
         LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.WRITE)) {
       mPermissionChecker.checkParentPermission(Mode.Bits.WRITE, inodePath);
       loadMetadataAndJournal(inodePath, options, journalContext);
-      return inodePath.getInode().getId();
+      long ret = inodePath.getInode().getId();
+      logAudit(true, "loadMetadata", path.toString(), inodePath.getInode(), null);
+      return ret;
+    } catch (AccessControlException e) {
+      logAudit(false, "loadMetadata", path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -2360,6 +2446,10 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mMountTable.checkUnderWritableMountPoint(alluxioPath);
       mountAndJournal(inodePath, ufsPath, options, journalContext);
       Metrics.PATHS_MOUNTED.inc();
+      logAudit(true, "mount", alluxioPath.toString(), inodePath.getInode(), null);
+    } catch (AccessControlException e) {
+      logAudit(false, "mount", alluxioPath.toString(), null, null);
+      throw e;
     }
   }
 
@@ -2493,6 +2583,10 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
       mPermissionChecker.checkParentPermission(Mode.Bits.WRITE, inodePath);
       deletedInodes = unmountAndJournal(inodePath, journalContext);
       Metrics.PATHS_UNMOUNTED.inc();
+      logAudit(true, "unmount", alluxioPath.toString(), inodePath.getInode(), null);
+    } catch (AccessControlException e) {
+      logAudit(false, "unmount", alluxioPath.toString(), null, null);
+      throw e;
     }
     deleteInodeBlocks(deletedInodes);
   }
@@ -2584,6 +2678,10 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
         LockedInodePath inodePath = mInodeTree.lockFullInodePath(path, InodeTree.LockMode.WRITE)) {
       mPermissionChecker.checkSetAttributePermission(inodePath, rootRequired, ownerRequired);
       setAttributeAndJournal(inodePath, rootRequired, ownerRequired, options, journalContext);
+      logAudit(true, "setAttribute", path.toString(), inodePath.getInode(), null);
+    } catch (AccessControlException e) {
+      logAudit(false, "setAttribute", path.toString(), null, null);
+      throw e;
     }
   }
 
@@ -2857,6 +2955,21 @@ public final class DefaultFileSystemMaster extends AbstractMaster implements Fil
   @Override
   public List<WorkerInfo> getWorkerInfoList() {
     return mBlockMaster.getWorkerInfoList();
+  }
+
+  private void logAudit(boolean authorized, String command, String srcPath, Inode srcInode,
+      String dstPath) {
+    if (!mAuditLogger.isEnabled()) {
+      return;
+    }
+    String user;
+    try {
+      user = AuthenticatedClientUser.getClientUser();
+    } catch (AccessControlException e) {
+      // ignore
+      user = "null";
+    }
+    mAuditLogger.log(authorized, user, "n/a", command, srcPath, srcInode, dstPath);
   }
 
   /**

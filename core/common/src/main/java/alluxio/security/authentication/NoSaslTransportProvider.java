@@ -14,7 +14,6 @@ package alluxio.security.authentication;
 import alluxio.Configuration;
 import alluxio.PropertyKey;
 
-import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportFactory;
 
@@ -26,7 +25,7 @@ import javax.security.sasl.SaslException;
 
 /**
  * If authentication type is {@link AuthType#NOSASL}, we use this transport provider which simply
- * uses default Thrift {@link TFramedTransport}.
+ * uses default {@link CustomFramedTransport}.
  */
 @ThreadSafe
 public final class NoSaslTransportProvider implements TransportProvider {
@@ -49,24 +48,24 @@ public final class NoSaslTransportProvider implements TransportProvider {
   public TTransport getClientTransport(InetSocketAddress serverAddress) {
     TTransport tTransport =
         TransportProviderUtils.createThriftSocket(serverAddress, mSocketTimeoutMs);
-    return new TFramedTransport(tTransport, mThriftFrameSizeMax);
+    return new CustomFramedTransport(tTransport, mThriftFrameSizeMax);
   }
 
   @Override
   public TTransport getClientTransport(Subject subject, InetSocketAddress serverAddress) {
     TTransport tTransport =
         TransportProviderUtils.createThriftSocket(serverAddress, mSocketTimeoutMs);
-    return new TFramedTransport(tTransport, mThriftFrameSizeMax);
+    return new CustomFramedTransport(tTransport, mThriftFrameSizeMax);
   }
 
   @Override
   public TTransportFactory getServerTransportFactory(String serverName) throws SaslException {
-    return new TFramedTransport.Factory(mThriftFrameSizeMax);
+    return new CustomFramedTransport.Factory(mThriftFrameSizeMax);
   }
 
   @Override
   public TTransportFactory getServerTransportFactory(Runnable runnable, String serverName)
       throws SaslException {
-    return new TFramedTransport.Factory(mThriftFrameSizeMax);
+    return new CustomFramedTransport.Factory(mThriftFrameSizeMax);
   }
 }
