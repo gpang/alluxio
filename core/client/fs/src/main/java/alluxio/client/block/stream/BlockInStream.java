@@ -187,10 +187,10 @@ public class BlockInStream extends InputStream implements BoundedStream, Seekabl
 
   @Override
   public int read(byte[] b, int off, int len) throws IOException {
-    checkIfClosed();
-    Preconditions.checkArgument(b != null, PreconditionMessage.ERR_READ_BUFFER_NULL);
-    Preconditions.checkArgument(off >= 0 && len >= 0 && len + off <= b.length,
-        PreconditionMessage.ERR_BUFFER_STATE.toString(), b.length, off, len);
+//    checkIfClosed();
+//    Preconditions.checkArgument(b != null, PreconditionMessage.ERR_READ_BUFFER_NULL);
+//    Preconditions.checkArgument(off >= 0 && len >= 0 && len + off <= b.length,
+//        PreconditionMessage.ERR_BUFFER_STATE.toString(), b.length, off, len);
     if (len == 0) {
       return 0;
     }
@@ -201,9 +201,9 @@ public class BlockInStream extends InputStream implements BoundedStream, Seekabl
     }
     if (mEOF) {
       closePacketReader();
-      Preconditions
-          .checkState(mPos >= mLength, PreconditionMessage.BLOCK_LENGTH_INCONSISTENT.toString(),
-              mId, mLength, mPos);
+//      Preconditions
+//          .checkState(mPos >= mLength, PreconditionMessage.BLOCK_LENGTH_INCONSISTENT.toString(),
+//              mId, mLength, mPos);
       return -1;
     }
     int toRead = Math.min(len, mCurrentPacket.readableBytes());

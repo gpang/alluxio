@@ -72,7 +72,17 @@ public final class LocalFileBlockReader implements BlockReader {
     if (length == -1L) {
       length = mFileSize - offset;
     }
-    return mLocalFileChannel.map(FileChannel.MapMode.READ_ONLY, offset, length);
+
+//    ByteBuffer buf = ByteBuffer.allocate((int) length);
+//    mLocalFileChannel.read(buf, offset);
+//    return buf;
+
+    byte[] arr = new byte[(int) length];
+    mLocalFile.seek(offset);
+    mLocalFile.read(arr, 0, (int) length);
+    return ByteBuffer.wrap(arr);
+
+//    return mLocalFileChannel.map(FileChannel.MapMode.READ_ONLY, offset, length);
   }
 
   @Override

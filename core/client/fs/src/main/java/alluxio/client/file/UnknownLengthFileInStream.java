@@ -64,7 +64,7 @@ public final class UnknownLengthFileInStream extends FileInStream {
       FileSystemMasterClient masterClient = mContext.acquireMasterClient();
       try {
         masterClient.completeFile(new AlluxioURI(mStatus.getPath()),
-            CompleteFileOptions.defaults().setUfsLength(mPos));
+            CompleteFileOptions.defaults().setUfsLength(mPositionState.getPos()));
       } finally {
         mContext.releaseMasterClient(masterClient);
       }
@@ -80,7 +80,7 @@ public final class UnknownLengthFileInStream extends FileInStream {
       return mCurrentBlockInStream.remaining();
     }
     // A file of unknown length can only be one block.
-    return mBlockSize - mPos;
+    return mBlockSize - mPositionState.getPos();
   }
 
   @Override

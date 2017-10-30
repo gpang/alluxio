@@ -79,8 +79,6 @@ public class FileInStream extends InputStream
 
   /** If the stream is closed, this can only go from false to true. */
   protected boolean mClosed;
-  /** Current position of the file instream. */
-  protected long mPos;
 
   /**
    * Caches the entire block even if only a portion of the block is read. Only valid when
@@ -103,6 +101,8 @@ public class FileInStream extends InputStream
 
   /** The read buffer in file seek. This is used in {@link #readCurrentBlockToEnd()}. */
   private byte[] mSeekBuffer;
+
+  protected PositionState mPositionState;
 
   /**
    * Creates a new file input stream.
@@ -145,6 +145,7 @@ public class FileInStream extends InputStream
     int seekBufferSizeBytes = Math.max((int) options.getSeekBufferSizeBytes(), 1);
     mSeekBuffer = new byte[seekBufferSizeBytes];
     mBlockStore = AlluxioBlockStore.create(context);
+    mPositionState = new PositionState(mStatus);
     LOG.debug("Init FileInStream with options {}", options);
   }
 
@@ -169,7 +170,7 @@ public class FileInStream extends InputStream
 
   @Override
   public long getPos() {
-    return mPos;
+    return mPositionState.getPos();
   }
 
   @Override
@@ -188,7 +189,7 @@ public class FileInStream extends InputStream
   }
 
   private int readInternal() throws IOException {
-    if (remainingInternal() <= 0) {
+    if (mPositionState.getRemaining() <= 0) {
       return -1;
     }
     updateStreams();
@@ -200,7 +201,7 @@ public class FileInStream extends InputStream
       return -1;
     }
 
-    mPos++;
+    mPositionState.inc();
     if (mCurrentCacheStream != null) {
       try {
         mCurrentCacheStream.write(data);
@@ -212,21 +213,21 @@ public class FileInStream extends InputStream
   }
 
   private int readInternal(byte[] b, int off, int len) throws IOException {
-    Preconditions.checkArgument(b != null, PreconditionMessage.ERR_READ_BUFFER_NULL);
-    Preconditions.checkArgument(off >= 0 && len >= 0 && len + off <= b.length,
-        PreconditionMessage.ERR_BUFFER_STATE.toString(), b.length, off, len);
+//    Preconditions.checkArgument(b != null, PreconditionMessage.ERR_READ_BUFFER_NULL);
+//    Preconditions.checkArgument(off >= 0 && len >= 0 && len + off <= b.length,
+//        PreconditionMessage.ERR_BUFFER_STATE.toString(), b.length, off, len);
     if (len == 0) {
       return 0;
-    } else if (remainingInternal() <= 0) {
+    } else if (mPositionState.getRemaining() <= 0) {
       return -1;
     }
 
     int currentOffset = off;
     int bytesLeftToRead = len;
 
-    while (bytesLeftToRead > 0 && remainingInternal() > 0) {
+    while (bytesLeftToRead > 0 && mPositionState.getRemaining() > 0) {
       updateStreams();
-      Preconditions.checkNotNull(mCurrentBlockInStream, PreconditionMessage.ERR_UNEXPECTED_EOF);
+//      Preconditions.checkNotNull(mCurrentBlockInStream, PreconditionMessage.ERR_UNEXPECTED_EOF);
       int bytesToRead = (int) Math.min(bytesLeftToRead, mCurrentBlockInStream.remaining());
 
       int bytesRead;
@@ -243,7 +244,7 @@ public class FileInStream extends InputStream
             handleCacheStreamException(e);
           }
         }
-        mPos += bytesRead;
+        mPositionState.inc(bytesRead);
         bytesLeftToRead -= bytesRead;
         currentOffset += bytesRead;
       }
@@ -270,7 +271,7 @@ public class FileInStream extends InputStream
     // If partial read cache is enabled, we fall back to the normal read.
     if (shouldCachePartiallyReadBlock()) {
       synchronized (this) {
-        long oldPos = mPos;
+        long oldPos = mPositionState.getPos();
         try {
           seek(pos);
           return read(b, off, len);
@@ -286,7 +287,7 @@ public class FileInStream extends InputStream
       if (pos >= mFileLength) {
         break;
       }
-      long blockId = getBlockId(pos);
+      long blockId = mPositionState.getBlockId();
       long blockPos = pos % mBlockSize;
       try (BlockInStream bin = getBlockInStream(blockId)) {
         int bytesRead =
@@ -304,12 +305,12 @@ public class FileInStream extends InputStream
   public long remaining() {
     // WARNING: do not call remaining() directly within this file, use remainingInternal() instead
     // so that remaining() can be overridden by subclasses.
-    return remainingInternal();
+    return mPositionState.getRemaining();
   }
 
   @Override
   public void seek(long pos) throws IOException {
-    if (mPos == pos) {
+    if (mPositionState.getPos() == pos) {
       return;
     }
     Preconditions.checkArgument(pos >= 0, PreconditionMessage.ERR_SEEK_NEGATIVE.toString(), pos);
@@ -336,8 +337,8 @@ public class FileInStream extends InputStream
       return 0;
     }
 
-    long toSkip = Math.min(n, remainingInternal());
-    seek(mPos + toSkip);
+    long toSkip = Math.min(n, mPositionState.getRemaining());
+    seek(mPositionState.getPos() + toSkip);
     return toSkip;
   }
 
@@ -390,7 +391,8 @@ public class FileInStream extends InputStream
           String.format("BlockInStream and CacheStream is out of sync %d %d.",
               mCurrentBlockInStream.remaining(), mCurrentCacheStream.remaining()));
     }
-    return mCurrentBlockInStream.remaining() == 0;
+    return false;
+//    return mCurrentBlockInStream.remaining() == 0;
   }
 
   /**
@@ -410,11 +412,11 @@ public class FileInStream extends InputStream
       // This happens if two concurrent readers read trying to cache the same block. One cancelled
       // before the other. Then the other reader will see this exception since we only keep
       // one block per blockId in block worker.
-      LOG.info("Block {} does not exist when being cancelled.", getCurrentBlockId());
+      LOG.info("Block {} does not exist when being cancelled.", mPositionState.getBlockId());
     } catch (AlreadyExistsException e) {
       // This happens if two concurrent readers trying to cache the same block. One successfully
       // committed. The other reader sees this.
-      LOG.info("Block {} exists.", getCurrentBlockId());
+      LOG.info("Block {} exists.", mPositionState.getBlockId());
     } catch (IOException e) {
       // This happens when there are any other cache stream close/cancel related errors (e.g.
       // server unreachable due to network partition, server busy due to Alluxio worker is
@@ -424,27 +426,6 @@ public class FileInStream extends InputStream
           + "the regular stream won't be affected.", e.getMessage());
     }
     mCurrentCacheStream = null;
-  }
-
-  /**
-   * @return the current block id based on mPos, -1 if at the end of the file
-   */
-  private long getCurrentBlockId() {
-    if (remainingInternal() <= 0) {
-      return -1;
-    }
-    return getBlockId(mPos);
-  }
-
-  /**
-   * @param pos the pos
-   * @return the block ID based on the pos
-   */
-  private long getBlockId(long pos) {
-    int index = (int) (pos / mBlockSize);
-    Preconditions.checkState(index < mStatus.getBlockIds().size(),
-        PreconditionMessage.ERR_BLOCK_INDEX.toString(), index, pos, mStatus.getBlockIds().size());
-    return mStatus.getBlockIds().get(index);
   }
 
   /**
@@ -459,10 +440,10 @@ public class FileInStream extends InputStream
       // created the block (either as temp block or committed block). The second sees this
       // exception.
       LOG.info("The block with ID {} is already stored in the target worker, canceling the cache "
-          + "request.", getCurrentBlockId());
+          + "request.", mPositionState.getBlockId());
     } else {
       LOG.warn("The block with ID {} could not be cached into Alluxio storage: {}",
-          getCurrentBlockId(), e.toString());
+          mPositionState.getBlockId(), e.toString());
     }
     closeOrCancelCacheStream();
   }
@@ -474,7 +455,7 @@ public class FileInStream extends InputStream
    * function every read and seek unless you are sure about the block streams are up-to-date.
    */
   private void updateStreams() throws IOException {
-    long currentBlockId = getCurrentBlockId();
+    long currentBlockId = mPositionState.getBlockId();
     if (shouldUpdateStreams(currentBlockId)) {
       // The following two function handle negative currentBlockId (i.e. the end of file)
       // correctly.
@@ -524,7 +505,7 @@ public class FileInStream extends InputStream
 
     // Unlike updateBlockInStream below, we never start a block cache stream if mPos is in the
     // middle of a block.
-    if (mPos % mBlockSize != 0) {
+    if (mPositionState.getPos() % mBlockSize != 0) {
       return;
     }
 
@@ -532,8 +513,9 @@ public class FileInStream extends InputStream
       // If this block is read from a remote worker, we should never cache except to a local worker.
       WorkerNetAddress localWorker = mContext.getLocalWorker();
       if (localWorker != null) {
-        mCurrentCacheStream =
-            mBlockStore.getOutStream(blockId, getBlockSize(mPos), localWorker, mOutStreamOptions);
+        mCurrentCacheStream = mBlockStore
+            .getOutStream(blockId, getBlockSize(mPositionState.getPos()), localWorker,
+                mOutStreamOptions);
       }
     } catch (IOException e) {
       handleCacheStreamException(e);
@@ -588,17 +570,13 @@ public class FileInStream extends InputStream
    */
   private void seekInternal(long pos) throws IOException {
     closeOrCancelCacheStream();
-    mPos = pos;
+    mPositionState.setPos(pos);
     updateStreams();
     if (mCurrentBlockInStream != null) {
-      mCurrentBlockInStream.seek(mPos % mBlockSize);
+      mCurrentBlockInStream.seek(mPositionState.getPos() % mBlockSize);
     } else {
-      Preconditions.checkState(remainingInternal() == 0);
+      Preconditions.checkState(mPositionState.getRemaining() == 0);
     }
-  }
-
-  private long remainingInternal() {
-    return mFileLength - mPos;
   }
 
   /**
@@ -640,7 +618,7 @@ public class FileInStream extends InputStream
    */
   private void seekInternalWithCachingPartiallyReadBlock(long pos) throws IOException {
     // Precompute this because mPos will be updated several times in this function.
-    final boolean isInCurrentBlock = pos / mBlockSize == mPos / mBlockSize;
+    final boolean isInCurrentBlock = pos / mBlockSize == mPositionState.getPos() / mBlockSize;
 
     if (isInCurrentBlock) {
       // the read is within the current block update stream to refresh the streams
@@ -648,11 +626,11 @@ public class FileInStream extends InputStream
       if (isReadFromLocalWorker()) {
         // no need to partial cache the current block, and the seek is within the block
         // so directly seeks to position.
-        mPos = pos;
+        mPositionState.setPos(pos);
         // updateStreams is necessary when pos = mFileLength.
         updateStreams();
         if (mCurrentBlockInStream != null) {
-          mCurrentBlockInStream.seek(mPos % mBlockSize);
+          mCurrentBlockInStream.seek(mPositionState.getPos() % mBlockSize);
         } else {
           Preconditions.checkState(remaining() == 0);
         }
@@ -665,7 +643,7 @@ public class FileInStream extends InputStream
     // (2) the in stream reads from the local worker
     // (3) the in stream reads from a remote worker but there is no local worker
     boolean firstSeekOutsideFirstBlock =
-        mPos == 0 && mCurrentBlockInStream == null && !isInCurrentBlock;
+        mPositionState.getPos() == 0 && mCurrentBlockInStream == null && !isInCurrentBlock;
     if (!firstSeekOutsideFirstBlock && canCacheToLocalWorker()) {
       // Make sure that mCurrentBlockInStream and mCurrentCacheStream is updated.
       // mPos is not updated here.
@@ -673,7 +651,7 @@ public class FileInStream extends InputStream
 
       // Cache till pos if seeking forward within the current block. Otherwise cache the whole
       // block.
-      if (isInCurrentBlock && pos > mPos) {
+      if (isInCurrentBlock && pos > mPositionState.getPos()) {
         readCurrentBlockToPos(pos);
       } else {
         readCurrentBlockToEnd();
@@ -681,7 +659,7 @@ public class FileInStream extends InputStream
 
       // Early return if we are at pos already. This happens if we seek forward with caching
       // enabled for this block.
-      if (mPos == pos) {
+      if (mPositionState.getPos() == pos) {
         return;
       }
       // The early return above guarantees that we won't close an incomplete cache stream.
@@ -691,7 +669,7 @@ public class FileInStream extends InputStream
 
     // lastly handle the target block
     // the seek is outside the current block, seek to the beginning of that block first
-    mPos = pos / mBlockSize * mBlockSize;
+    mPositionState.setPos(pos / mBlockSize * mBlockSize);
     updateStreams();
     if (canCacheToLocalWorker()) {
       // cache till the seek position of the block unless
@@ -735,7 +713,7 @@ public class FileInStream extends InputStream
     if (mCurrentBlockInStream == null) {
       return;
     }
-    long len = Math.min(pos - mPos, mCurrentBlockInStream.remaining());
+    long len = Math.min(pos - mPositionState.getPos(), mCurrentBlockInStream.remaining());
     if (len <= 0) {
       return;
     }
@@ -753,5 +731,108 @@ public class FileInStream extends InputStream
    */
   private void readCurrentBlockToEnd() throws IOException {
     readCurrentBlockToPos(Long.MAX_VALUE);
+  }
+
+  protected final class PositionState {
+    private final URIStatus mStatus;
+
+    private long mPos;
+    private long mRemaining;
+
+    // State derived from mPos
+    private long mBlockStartPos;
+    private long mNextBlockStartPos;
+    private int mBlockIndex;
+    private long mBlockId;
+
+    public PositionState(URIStatus status) {
+      mStatus = status;
+
+      mPos = 0;
+      mRemaining = mStatus.getLength() - mPos;
+      computeState();
+    }
+
+    public long getPos() {
+      return mPos;
+    }
+
+    public long getRemaining() {
+      return mRemaining;
+    }
+
+    public void inc() {
+      mPos++;
+      mRemaining--;
+      updateOnInc();
+    }
+
+    public void inc(long add) {
+      mPos += add;
+      mRemaining -= add;
+      updateOnInc();
+    }
+
+    public void setPos(long pos) {
+      mPos = pos;
+      mRemaining = mStatus.getLength() - mPos;
+      updateOnSet();
+    }
+
+    public long getBlockId() {
+      return mBlockId;
+    }
+
+    private void updateOnInc() {
+      if (mPos < mNextBlockStartPos) {
+        return;
+      }
+      if (mPos < (mNextBlockStartPos + mStatus.getBlockSizeBytes())) {
+        incrementState();
+        return;
+      }
+      computeState();
+    }
+
+    private void updateOnSet() {
+      if ((mPos >= mBlockStartPos) && (mPos < mNextBlockStartPos) && mBlockId != -1) {
+        return;
+      }
+      computeState();
+    }
+
+    private void computeState() {
+      if (mPos >= mStatus.getLength()) {
+        mRemaining = 0;
+        mBlockId = -1;
+        return;
+      }
+
+      mBlockIndex = (int) (mPos / mStatus.getBlockSizeBytes());
+      mBlockId = mStatus.getBlockIds().get(mBlockIndex);
+
+      mBlockStartPos = mBlockIndex * mStatus.getBlockSizeBytes();
+      mNextBlockStartPos = mBlockStartPos + mStatus.getBlockSizeBytes();
+      if (mNextBlockStartPos > mStatus.getLength()) {
+        mNextBlockStartPos = mStatus.getLength();
+      }
+    }
+
+    private void incrementState() {
+      if (mPos >= mStatus.getLength()) {
+        mRemaining = 0;
+        mBlockId = -1;
+        return;
+      }
+
+      mBlockIndex++;
+      mBlockId = mStatus.getBlockIds().get(mBlockIndex);
+
+      mBlockStartPos += mStatus.getBlockSizeBytes();
+      mNextBlockStartPos += mStatus.getBlockSizeBytes();
+      if (mNextBlockStartPos > mStatus.getLength()) {
+        mNextBlockStartPos = mStatus.getLength();
+      }
+    }
   }
 }
