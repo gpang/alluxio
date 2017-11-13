@@ -265,6 +265,15 @@ public class UnderFileSystemWithLogging implements UnderFileSystem {
   }
 
   @Override
+  public String getFingerprint(String path) {
+    String method = String.format("GetFingerprint: path=%s", path);
+    LOG.debug("Enter: {}", method);
+    String ret = mUnderFileSystem.getFingerprint(path);
+    LOG.debug("Exit (OK): {}", method);
+    return ret;
+  }
+
+  @Override
   public long getSpace(final String path, final SpaceType type) throws IOException {
     return call(new UfsCallable<Long>() {
       @Override
