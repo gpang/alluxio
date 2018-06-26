@@ -50,6 +50,11 @@ public class MutableLockedInodePath extends LockedInodePath {
     super(descendantUri, lockedInodePath, descendants);
   }
 
+  public MutableLockedInodePath(AlluxioURI uri, Indexable<String> pathComponents,
+      InodeLockList lockList, InodeTree.LockMode lockMode) throws InvalidPathException {
+    super(uri, pathComponents, lockList, lockMode);
+  }
+
   Indexable<String> getPathComponents() {
     return mPathComponents;
   }

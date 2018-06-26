@@ -754,6 +754,28 @@ public class InodeTree implements JournalEntryIterable {
   }
 
   /**
+   *
+   * @param inodePath the root to start locking
+   * @param lockMode the lock type to use
+   * @param child child to lock
+   * @return a locked inode path after locking this child
+   */
+  public LockedInodePath lockChild(LockedInodePath inodePath, LockMode lockMode,
+      Inode child) throws FileDoesNotExistException, InvalidPathException {
+    InodeLockList lockList = new InodeLockList();
+
+    if (lockMode == LockMode.READ) {
+      lockList.lockReadAndCheckParent(child, inodePath.getInode());
+    } else {
+      lockList.lockWriteAndCheckParent(child, inodePath.getInode());
+    }
+
+    return new MutableLockedInodePath(inodePath.getUri().join(child.getName()),
+        new IndexableExtended<>(inodePath.mPathComponents, child.getName()),
+        new CompositeInodeLockList(inodePath.mLockList, lockList), lockMode);
+  }
+
+  /**
    * Locks from a specific point in the tree to the descendant, and return a lockedInodePath.
    *
    * @param inodePath the root to start locking
