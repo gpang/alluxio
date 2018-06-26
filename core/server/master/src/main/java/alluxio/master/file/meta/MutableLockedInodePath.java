@@ -50,7 +50,7 @@ public class MutableLockedInodePath extends LockedInodePath {
     super(descendantUri, lockedInodePath, descendants);
   }
 
-  String[] getPathComponents() {
+  Indexable<String> getPathComponents() {
     return mPathComponents;
   }
 

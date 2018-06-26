@@ -201,7 +201,8 @@ public class InodeTree implements JournalEntryIterable {
   public boolean inodePathExists(AlluxioURI uri) {
     try {
       TraversalResult traversalResult =
-          traverseToInode(PathUtils.getPathComponents(uri.getPath()), LockMode.READ, null);
+          traverseToInode(new IndexableArray<>(PathUtils.getPathComponents(uri.getPath())),
+              LockMode.READ, null);
       traversalResult.getInodeLockList().close();
       return traversalResult.isFound();
     } catch (InvalidPathException e) {
@@ -221,7 +222,8 @@ public class InodeTree implements JournalEntryIterable {
   public LockedInodePath lockInodePath(AlluxioURI path, LockMode lockMode)
       throws InvalidPathException {
     TraversalResult traversalResult =
-        traverseToInode(PathUtils.getPathComponents(path.getPath()), lockMode, null);
+        traverseToInode(new IndexableArray<>(PathUtils.getPathComponents(path.getPath())), lockMode,
+            null);
     return new MutableLockedInodePath(path,
         traversalResult.getInodeLockList(), lockMode);
   }
@@ -239,16 +241,18 @@ public class InodeTree implements JournalEntryIterable {
    */
   public InodePathPair lockInodePathPair(AlluxioURI path1, LockMode lockMode1, AlluxioURI path2,
       LockMode lockMode2) throws InvalidPathException {
-    String[] pathComponents1 = PathUtils.getPathComponents(path1.getPath());
-    String[] pathComponents2 = PathUtils.getPathComponents(path2.getPath());
+    Indexable<String> pathComponents1 =
+        new IndexableArray<>(PathUtils.getPathComponents(path1.getPath()));
+    Indexable<String> pathComponents2 =
+        new IndexableArray<>(PathUtils.getPathComponents(path2.getPath()));
     List<LockMode> lockHints = new ArrayList<>();
 
-    int minLength = Math.min(pathComponents1.length, pathComponents2.length);
+    int minLength = Math.min(pathComponents1.size(), pathComponents2.size());
     for (int i = 0; i < minLength; i++) {
-      if (pathComponents1[i].equals(pathComponents2[i])) {
+      if (pathComponents1.get(i).equals(pathComponents2.get(i))) {
         // The two paths share a common path prefix.
-        LockMode mode1 = getLockModeForComponent(i, pathComponents1.length, lockMode1, null);
-        LockMode mode2 = getLockModeForComponent(i, pathComponents2.length, lockMode2, null);
+        LockMode mode1 = getLockModeForComponent(i, pathComponents1.size(), lockMode1, null);
+        LockMode mode2 = getLockModeForComponent(i, pathComponents2.size(), lockMode2, null);
         // If either of the modes are WRITE, lock both components as WRITE to prevent deadlock.
         // TODO(gpang): consider a combine helper method
         if (mode1 == LockMode.READ && mode2 == LockMode.READ) {
@@ -334,7 +338,8 @@ public class InodeTree implements JournalEntryIterable {
   public LockedInodePath lockFullInodePath(AlluxioURI path, LockMode lockMode)
       throws InvalidPathException, FileDoesNotExistException {
     TraversalResult traversalResult =
-        traverseToInode(PathUtils.getPathComponents(path.getPath()), lockMode, null);
+        traverseToInode(new IndexableArray<>(PathUtils.getPathComponents(path.getPath())), lockMode,
+            null);
     if (!traversalResult.isFound()) {
       traversalResult.getInodeLockList().close();
       throw new FileDoesNotExistException(ExceptionMessage.PATH_DOES_NOT_EXIST.getMessage(path));
@@ -519,19 +524,19 @@ public class InodeTree implements JournalEntryIterable {
 
     TraversalResult traversalResult = traverseToInode(inodePath, inodePath.getLockMode());
     MutableLockedInodePath extensibleInodePath = (MutableLockedInodePath) inodePath;
-    String[] pathComponents = extensibleInodePath.getPathComponents();
+    Indexable<String> pathComponents = extensibleInodePath.getPathComponents();
     String name = path.getName();
 
     // pathIndex is the index into pathComponents where we start filling in the path from the inode.
     int pathIndex = extensibleInodePath.size();
-    if (pathIndex < pathComponents.length - 1) {
+    if (pathIndex < pathComponents.size() - 1) {
       // The immediate parent was not found. If it's not recursive, we throw an exception here.
       // Otherwise we add the remaining path components to the list of components to create.
       if (!options.isRecursive()) {
         final String msg = new StringBuilder().append("File ").append(path)
             .append(" creation failed. Component ")
             .append(pathIndex).append("(")
-            .append(pathComponents[pathIndex])
+            .append(pathComponents.get(pathIndex))
             .append(") does not exist").toString();
         LOG.error("FileDoesNotExistException: {}", msg);
         throw new FileDoesNotExistException(msg);
@@ -541,7 +546,7 @@ public class InodeTree implements JournalEntryIterable {
     Inode<?> ancestorInode = extensibleInodePath.getAncestorInode();
     if (!ancestorInode.isDirectory()) {
       throw new InvalidPathException("Could not traverse to parent directory of path " + path
-          + ". Component " + pathComponents[pathIndex - 1] + " is not a directory.");
+          + ". Component " + pathComponents.get(pathIndex - 1) + " is not a directory.");
     }
     InodeDirectory currentInodeDirectory = (InodeDirectory) ancestorInode;
 
@@ -554,7 +559,7 @@ public class InodeTree implements JournalEntryIterable {
         syncPersistDirectory(rpcContext, (InodeDirectory) inode);
       }
     }
-    if ((pathIndex < (pathComponents.length - 1) || currentInodeDirectory.getChild(name) == null)
+    if ((pathIndex < (pathComponents.size() - 1) || currentInodeDirectory.getChild(name) == null)
         && options.getOperationTimeMs() > currentInodeDirectory.getLastModificationTimeMs()) {
       // (1) There are components in parent paths that need to be created. Or
       // (2) The last component of the path needs to be created.
@@ -582,22 +587,22 @@ public class InodeTree implements JournalEntryIterable {
         .setGroup(options.getGroup())
         .setTtl(options.getTtl())
         .setTtlAction(options.getTtlAction());
-    for (int k = pathIndex; k < (pathComponents.length - 1); k++) {
+    for (int k = pathIndex; k < (pathComponents.size() - 1); k++) {
       InodeDirectory dir = null;
       while (dir == null) {
         dir = InodeDirectory.create(
             mDirectoryIdGenerator.getNewDirectoryId(rpcContext.getJournalContext()),
-            currentInodeDirectory.getId(), pathComponents[k], missingDirOptions);
+            currentInodeDirectory.getId(), pathComponents.get(k), missingDirOptions);
         // Lock the newly created inode before subsequent operations, and add it to the lock group.
         extensibleInodePath.getLockList().lockWriteAndCheckNameAndParent(dir,
-            currentInodeDirectory, pathComponents[k]);
+            currentInodeDirectory, pathComponents.get(k));
 
         if (!currentInodeDirectory.addChild(dir)) {
           // The child directory inode already exists. Get the existing child inode.
           extensibleInodePath.getLockList().unlockLast();
 
           dir =
-              (InodeDirectory) currentInodeDirectory.getChildReadLock(pathComponents[k],
+              (InodeDirectory) currentInodeDirectory.getChildReadLock(pathComponents.get(k),
                   extensibleInodePath.getLockList());
           if (dir == null) {
             // Could not get the child inode. Continue and try again.
@@ -795,7 +800,7 @@ public class InodeTree implements JournalEntryIterable {
     // Lock from inodePath to the descendant
     InodeLockList lockList = new InodeLockList();
     TraversalResult traversalResult = traverseToInodeInternal(
-        PathUtils.getPathComponents(descendantUri.getPath()),
+        new IndexableArray<>(PathUtils.getPathComponents(descendantUri.getPath())),
         inodeList, nonPersistedInodes, lockList, lockMode, null);
     if (traversalResult.mFound) {
       return traversalResult.mLockList;
@@ -1152,7 +1157,7 @@ public class InodeTree implements JournalEntryIterable {
    * @return the {@link TraversalResult} for this traversal
    * @throws InvalidPathException if the path is invalid
    */
-  private TraversalResult traverseToInode(String[] pathComponents, LockMode lockMode,
+  private TraversalResult traverseToInode(Indexable<String> pathComponents, LockMode lockMode,
       List<LockMode> lockHints)
       throws InvalidPathException {
     List<Inode<?>> nonPersistedInodes = new ArrayList<>();
@@ -1165,12 +1170,12 @@ public class InodeTree implements JournalEntryIterable {
     try {
       if (pathComponents == null) {
         throw new InvalidPathException(ExceptionMessage.PATH_COMPONENTS_INVALID.getMessage("null"));
-      } else if (pathComponents.length == 0) {
+      } else if (pathComponents.size() == 0) {
         throw new InvalidPathException(
             ExceptionMessage.PATH_COMPONENTS_INVALID.getMessage("empty"));
-      } else if (pathComponents.length == 1) {
-        if (pathComponents[0].equals("")) {
-          if (getLockModeForComponent(0, pathComponents.length, lockMode, lockHints)
+      } else if (pathComponents.size() == 1) {
+        if (pathComponents.get(0).equals("")) {
+          if (getLockModeForComponent(0, pathComponents.size(), lockMode, lockHints)
               == LockMode.READ) {
             lockList.lockRead(mRoot);
           } else {
@@ -1181,11 +1186,11 @@ public class InodeTree implements JournalEntryIterable {
           return TraversalResult.createFoundResult(nonPersistedInodes, lockList);
         } else {
           throw new InvalidPathException(
-              ExceptionMessage.PATH_COMPONENTS_INVALID_START.getMessage(pathComponents[0]));
+              ExceptionMessage.PATH_COMPONENTS_INVALID_START.getMessage(pathComponents.get(0)));
         }
       }
 
-      if (getLockModeForComponent(0, pathComponents.length, lockMode, lockHints) == LockMode.READ) {
+      if (getLockModeForComponent(0, pathComponents.size(), lockMode, lockHints) == LockMode.READ) {
         lockList.lockRead(mRoot);
       } else {
         lockList.lockWrite(mRoot);
@@ -1247,13 +1252,13 @@ public class InodeTree implements JournalEntryIterable {
    * @return the result of the traversal
    * @throws InvalidPathException
    */
-  private TraversalResult traverseToInodeInternal(String[] pathComponents, List<Inode<?>> inodes,
-      List<Inode<?>> nonPersistedInodes, InodeLockList lockList, LockMode lockMode,
-      List<LockMode> lockHints)
+  private TraversalResult traverseToInodeInternal(Indexable<String> pathComponents,
+      List<Inode<?>> inodes, List<Inode<?>> nonPersistedInodes, InodeLockList lockList,
+      LockMode lockMode, List<LockMode> lockHints)
       throws InvalidPathException {
     Inode<?> current = inodes.get(inodes.size() - 1);
-    for (int i = inodes.size(); i < pathComponents.length; i++) {
-      Inode<?> next = ((InodeDirectory) current).getChild(pathComponents[i]);
+    for (int i = inodes.size(); i < pathComponents.size(); i++) {
+      Inode<?> next = ((InodeDirectory) current).getChild(pathComponents.get(i));
       if (next == null) {
         // The user might want to create the nonexistent directories, so return the traversal
         // result current inode with the last Inode taken, and the index of the first path
@@ -1261,16 +1266,16 @@ public class InodeTree implements JournalEntryIterable {
         return TraversalResult.createNotFoundResult(i, nonPersistedInodes, lockList);
       }
       // Lock the existing next inode before proceeding.
-      if (getLockModeForComponent(i, pathComponents.length, lockMode, lockHints)
+      if (getLockModeForComponent(i, pathComponents.size(), lockMode, lockHints)
           == LockMode.READ) {
-        lockList.lockReadAndCheckNameAndParent(next, current, pathComponents[i]);
+        lockList.lockReadAndCheckNameAndParent(next, current, pathComponents.get(i));
       } else {
-        lockList.lockWriteAndCheckNameAndParent(next, current, pathComponents[i]);
+        lockList.lockWriteAndCheckNameAndParent(next, current, pathComponents.get(i));
       }
       if (next.isFile()) {
         // The inode can't have any children. If this is the last path component, we're good.
         // Otherwise, we can't traverse further, so we clean up and throw an exception.
-        if (i == pathComponents.length - 1) {
+        if (i == pathComponents.size() - 1) {
           return TraversalResult.createFoundResult(nonPersistedInodes, lockList);
         } else {
           throw new InvalidPathException(
