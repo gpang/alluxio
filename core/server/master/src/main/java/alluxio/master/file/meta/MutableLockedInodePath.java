@@ -50,11 +50,11 @@ public class MutableLockedInodePath extends LockedInodePath {
     super(descendantUri, lockedInodePath, descendants);
   }
 
-  synchronized String[] getPathComponents() {
+  String[] getPathComponents() {
     return mPathComponents;
   }
 
-  synchronized InodeLockList getLockList() {
+  InodeLockList getLockList() {
     return mLockList;
   }
 }
