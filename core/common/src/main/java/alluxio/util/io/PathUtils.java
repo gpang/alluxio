@@ -36,6 +36,8 @@ public final class PathUtils {
   private static final String TEMPORARY_SUFFIX_FORMAT = ".alluxio.0x%016X.tmp";
   private static final int TEMPORARY_SUFFIX_LENGTH =
       String.format(TEMPORARY_SUFFIX_FORMAT, 0).length();
+  private static final CharMatcher SEPARATOR_MATCHER =
+      CharMatcher.is(AlluxioURI.SEPARATOR.charAt(0));
 
   /**
    * Checks and normalizes the given path.
@@ -74,25 +76,32 @@ public final class PathUtils {
   public static String concatPath(Object base, Object... paths) throws IllegalArgumentException {
     Preconditions.checkArgument(base != null, "Failed to concatPath: base is null");
     Preconditions.checkArgument(paths != null, "Failed to concatPath: a null set of paths");
-    List<String> trimmedPathList = new ArrayList<>();
-    String trimmedBase =
-        CharMatcher.is(AlluxioURI.SEPARATOR.charAt(0)).trimTrailingFrom(base.toString());
-    trimmedPathList.add(trimmedBase);
+//    List<String> trimmedPathList = new ArrayList<>();
+    StringBuilder output = new StringBuilder();
+    String trimmedBase = SEPARATOR_MATCHER.trimTrailingFrom(base.toString());
+//    trimmedPathList.add(trimmedBase);
+    output.append(trimmedBase);
     for (Object path : paths) {
       if (path == null) {
         continue;
       }
-      String trimmedPath =
-          CharMatcher.is(AlluxioURI.SEPARATOR.charAt(0)).trimFrom(path.toString());
+      String trimmedPath = SEPARATOR_MATCHER.trimFrom(path.toString());
       if (!trimmedPath.isEmpty()) {
-        trimmedPathList.add(trimmedPath);
+//        trimmedPathList.add(trimmedPath);
+        output.append(AlluxioURI.SEPARATOR);
+        output.append(trimmedPath);
       }
     }
-    if (trimmedPathList.size() == 1 && trimmedBase.isEmpty()) {
+//    if (trimmedPathList.size() == 1 && trimmedBase.isEmpty()) {
+//      // base must be "[/]+"
+//      return AlluxioURI.SEPARATOR;
+//    }
+    if (output.length() == 0) {
       // base must be "[/]+"
       return AlluxioURI.SEPARATOR;
     }
-    return Joiner.on(AlluxioURI.SEPARATOR).join(trimmedPathList);
+//    return Joiner.on(AlluxioURI.SEPARATOR).join(trimmedPathList);
+    return output.toString();
 
   }
 
