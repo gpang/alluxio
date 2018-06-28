@@ -770,7 +770,7 @@ public class InodeTree implements JournalEntryIterable {
       lockList.lockWriteAndCheckParent(child, inodePath.getInode());
     }
 
-    return new MutableLockedInodePath(inodePath.getUri().join(child.getName()),
+    return new MutableLockedInodePath(inodePath.getUri().joinUnsafe(child.getName()),
         new IndexableExtended<>(inodePath.mPathComponents, child.getName()),
         new CompositeInodeLockList(inodePath.mLockList, lockList), lockMode);
   }
