@@ -64,7 +64,7 @@ public final class PathUtils {
     String trimmedBase = SEPARATOR_MATCHER.trimTrailingFrom(base.toString());
     String trimmedPath = SEPARATOR_MATCHER.trimFrom(path.toString());
 
-    StringBuilder output = new StringBuilder(trimmedBase + trimmedPath + 1);
+    StringBuilder output = new StringBuilder(trimmedBase.length() + trimmedPath.length() + 1);
     output.append(trimmedBase);
     if (!trimmedPath.isEmpty()) {
       output.append(AlluxioURI.SEPARATOR);
