@@ -471,7 +471,21 @@ public final class AlluxioURI implements Comparable<AlluxioURI>, Serializable {
    */
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
+    int length = 5;
+    if (mUri.getScheme() != null) {
+      length += mUri.getScheme().length();
+    }
+    if (mUri.getAuthority() != null) {
+      length += mUri.getAuthority().length();
+    }
+    if (mUri.getPath() != null) {
+      length += mUri.getPath().length();
+    }
+    if (mUri.getQuery() != null) {
+      length += mUri.getQuery().length();
+    }
+
+    StringBuilder sb = new StringBuilder(length);
     if (mUri.getScheme() != null) {
       sb.append(mUri.getScheme());
       sb.append("://");
