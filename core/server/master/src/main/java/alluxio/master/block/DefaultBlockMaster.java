@@ -118,7 +118,7 @@ public final class DefaultBlockMaster extends CoreMaster implements BlockMaster 
    * allows the master to return container ids within the reservation, without having to write to
    * the journal.
    */
-  private static final long CONTAINER_ID_RESERVATION_SIZE = 1000;
+  private static final long CONTAINER_ID_RESERVATION_SIZE = 1000000;
 
   // Worker metadata management.
   private static final IndexDefinition<MasterWorkerInfo, Long> ID_INDEX =
