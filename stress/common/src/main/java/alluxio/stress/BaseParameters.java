@@ -38,8 +38,9 @@ public final class BaseParameters {
   public boolean mCluster = false;
 
   @Parameter(names = {CLUSTER_LIMIT_FLAG},
-      description = "If greater than 0, it will only run on that number of workers. If 0 or less,"
-          + " will run on all available cluster workers.")
+      description = "If greater than 0, it will only run on that number of workers. If 0,"
+          + " will run on all available cluster workers. If < 0, will run on the workers from the"
+          + " end of the list.")
   public int mClusterLimit = 0;
 
   @Parameter(names = {ID_FLAG},
