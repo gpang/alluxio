@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.UUID;
 
 /**
  * Server side interceptor for setting authenticated user in {@link AuthenticatedClientUser}. This
@@ -87,7 +86,7 @@ public final class AuthenticatedUserInjector implements ServerInterceptor {
     }
 
     // Try to fetch channel Id from the metadata.
-    UUID channelId = headers.get(ChannelIdInjector.S_CLIENT_ID_KEY);
+    String channelId = headers.get(ChannelIdInjector.S_CLIENT_ID_KEY);
     boolean callAuthenticated = false;
     if (channelId != null) {
       try {

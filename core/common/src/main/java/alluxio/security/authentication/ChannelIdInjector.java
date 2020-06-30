@@ -11,6 +11,8 @@
 
 package alluxio.security.authentication;
 
+import static io.grpc.Metadata.ASCII_STRING_MARSHALLER;
+
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -21,7 +23,6 @@ import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.UUID;
 
 /**
  * Client side interceptor that is used to augment outgoing metadata with the unique id for the
@@ -31,28 +32,18 @@ import java.util.UUID;
 public final class ChannelIdInjector implements ClientInterceptor {
 
   /** Metadata key for the channel Id. */
-  public static final Metadata.Key<UUID> S_CLIENT_ID_KEY =
-      Metadata.Key.of("channel-id", new Metadata.AsciiMarshaller<UUID>() {
-        @Override
-        public String toAsciiString(UUID value) {
-          return value.toString();
-        }
-
-        @Override
-        public UUID parseAsciiString(String serialized) {
-          return UUID.fromString(serialized);
-        }
-      });
+  public static final Metadata.Key<String> S_CLIENT_ID_KEY =
+      Metadata.Key.of("channel-id", ASCII_STRING_MARSHALLER);
 
   // TODO(ggezer) Consider more lightweight Id type.
-  private final UUID mChannelId;
+  private final String mChannelId;
 
   /**
    * Creates the injector that augments the outgoing metadata with given Id.
    *
    * @param channelId channel id
    */
-  public ChannelIdInjector(UUID channelId) {
+  public ChannelIdInjector(String channelId) {
     mChannelId = channelId;
   }
 

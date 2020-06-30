@@ -20,8 +20,6 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.UUID;
-
 import javax.security.sasl.SaslException;
 
 /**
@@ -31,7 +29,7 @@ public class AuthenticatedChannelServerDriver implements StreamObserver<SaslMess
   private static final Logger LOG = LoggerFactory.getLogger(AuthenticatedChannelServerDriver.class);
 
   /** Used to represent uninitialized channel Id. */
-  private static final UUID EMPTY_UUID = new UUID(0L, 0L);
+  private static final String EMPTY_UUID = "";
 
   /** Client's sasl stream. */
   private StreamObserver<SaslMessage> mRequestObserver = null;
@@ -39,7 +37,7 @@ public class AuthenticatedChannelServerDriver implements StreamObserver<SaslMess
   private AuthenticationServer mAuthenticationServer;
 
   /** Id for client-side channel that is authenticating. */
-  private UUID mChannelId = EMPTY_UUID;
+  private String mChannelId = EMPTY_UUID;
   /** Reference for client owning the channel. */
   private String mChannelRef;
   /** Sasl server handler that will be used to build secure stream. */
@@ -65,7 +63,7 @@ public class AuthenticatedChannelServerDriver implements StreamObserver<SaslMess
     mRequestObserver = requestObserver;
   }
 
-  private void initAuthenticatedChannel(ChannelAuthenticationScheme authScheme, UUID channelId,
+  private void initAuthenticatedChannel(ChannelAuthenticationScheme authScheme, String channelId,
       String channelRef) throws SaslException {
     LOG.debug("Initializing authentication for channel: {}. AuthType: {}", mChannelRef, authScheme);
     // Create sasl handler for the requested scheme.
@@ -110,7 +108,7 @@ public class AuthenticatedChannelServerDriver implements StreamObserver<SaslMess
       if (mChannelId.equals(EMPTY_UUID)) {
         initAuthenticatedChannel(
             saslMessage.getAuthenticationScheme(),
-            UUID.fromString(saslMessage.getClientId()),
+            saslMessage.getClientId(),
             saslMessage.getChannelRef());
       }
 

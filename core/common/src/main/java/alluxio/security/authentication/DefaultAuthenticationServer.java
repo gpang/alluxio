@@ -27,16 +27,16 @@ import net.jcip.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.security.sasl.SaslException;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import javax.security.sasl.SaslException;
 
 /**
  * Default implementation of {@link AuthenticationServer}. Its functions include:
@@ -50,7 +50,7 @@ public class DefaultAuthenticationServer
   private static final Logger LOG = LoggerFactory.getLogger(DefaultAuthenticationServer.class);
 
   /** List of channels authenticated against this server. */
-  protected final ConcurrentHashMap<UUID, AuthenticatedChannelInfo> mChannels;
+  protected final ConcurrentHashMap<String, AuthenticatedChannelInfo> mChannels;
   /** Scheduler for periodic cleaning of channels registry. */
   protected final ScheduledExecutorService mScheduler;
   /** Address of the authentication host.  */
@@ -92,7 +92,7 @@ public class DefaultAuthenticationServer
   }
 
   @Override
-  public void registerChannel(UUID channelId, AuthenticatedUserInfo userInfo,
+  public void registerChannel(String channelId, AuthenticatedUserInfo userInfo,
       AuthenticatedChannelServerDriver serverDriver) {
     LOG.debug("Registering new channel:{} for user:{}", channelId, userInfo);
     if (null != mChannels.putIfAbsent(channelId,
@@ -105,7 +105,7 @@ public class DefaultAuthenticationServer
   }
 
   @Override
-  public AuthenticatedUserInfo getUserInfoForChannel(UUID channelId)
+  public AuthenticatedUserInfo getUserInfoForChannel(String channelId)
       throws UnauthenticatedException {
     AuthenticatedChannelInfo clientInfo = mChannels.get(channelId);
     if (clientInfo != null) {
@@ -117,7 +117,7 @@ public class DefaultAuthenticationServer
   }
 
   @Override
-  public void unregisterChannel(UUID channelId) {
+  public void unregisterChannel(String channelId) {
     LOG.debug("Unregistering channel: {}", channelId);
     // Remove channel.
     mChannels.remove(channelId);
@@ -138,7 +138,7 @@ public class DefaultAuthenticationServer
 
   @Override
   public void close() {
-    for (Map.Entry<UUID, AuthenticatedChannelInfo> entry : mChannels.entrySet()) {
+    for (Map.Entry<String, AuthenticatedChannelInfo> entry : mChannels.entrySet()) {
       try {
         entry.getValue().getSaslServerDriver().close();
       } catch (Exception exc) {
@@ -156,8 +156,8 @@ public class DefaultAuthenticationServer
     LocalTime cleanupTime = LocalTime.now();
     LOG.debug("Starting cleanup authentication registry at {}", cleanupTime);
     // Get a list of stale clients under read lock.
-    List<UUID> staleChannels = new ArrayList<>();
-    for (Map.Entry<UUID, AuthenticatedChannelInfo> clientEntry : mChannels.entrySet()) {
+    List<String> staleChannels = new ArrayList<>();
+    for (Map.Entry<String, AuthenticatedChannelInfo> clientEntry : mChannels.entrySet()) {
       LocalTime lat = clientEntry.getValue().getLastAccessTime();
       if (lat.plusSeconds(mCleanupIntervalMs / 1000).isBefore(cleanupTime)) {
         staleChannels.add(clientEntry.getKey());
@@ -165,7 +165,7 @@ public class DefaultAuthenticationServer
     }
     // Unregister stale clients.
     LOG.debug("Found {} stale channels for cleanup.", staleChannels.size());
-    for (UUID clientId : staleChannels) {
+    for (String clientId : staleChannels) {
       mChannels.remove(clientId).getSaslServerDriver().close();
     }
     LOG.debug("Finished state channel cleanup at {}", LocalTime.now());

@@ -16,7 +16,6 @@ import alluxio.conf.PropertyKey;
 import alluxio.util.network.NetworkAddressUtils;
 
 import com.google.common.base.MoreObjects;
-
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import java.lang.annotation.ElementType;
@@ -36,7 +35,7 @@ public class GrpcChannelKey {
   private GrpcServerAddress mServerAddress;
 
   /** Unique channel identifier. */
-  private final UUID mChannelId = UUID.randomUUID();
+  private final String mChannelId = UUID.randomUUID().toString();
   /** Hostname to send to server for identification. */
   private final String mLocalHostName;
 
@@ -68,7 +67,7 @@ public class GrpcChannelKey {
   /**
    * @return unique identifier for the channel
    */
-  public UUID getChannelId() {
+  public String getChannelId() {
     return mChannelId;
   }
 

@@ -813,7 +813,8 @@ public final class DefaultFileSystemMaster extends CoreMaster
   public alluxio.grpc.FileInfo getFileInfo2(AlluxioURI path, GetStatusContext context)
       throws FileDoesNotExistException, InvalidPathException, AccessControlException,
       UnavailableException, IOException {
-    return GrpcUtils.toProto(mEmptyFileInfo);
+//    return GrpcUtils.toProto(mEmptyFileInfo);
+    return mEmptyGrpcFileInfo;
   }
 
   @Override

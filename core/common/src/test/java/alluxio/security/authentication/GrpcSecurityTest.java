@@ -35,10 +35,10 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.powermock.reflect.Whitebox;
 
+import java.net.InetSocketAddress;
+
 import javax.security.auth.Subject;
 import javax.security.sasl.AuthenticationException;
-import java.net.InetSocketAddress;
-import java.util.UUID;
 
 /**
  * Unit test for {@link alluxio.grpc.GrpcChannelBuilder} and {@link alluxio.grpc.GrpcServerBuilder}.
@@ -172,7 +172,7 @@ public class GrpcSecurityTest {
 
       // Grab internal channel-Id.
       GrpcConnection connection = Whitebox.getInternalState(channel, "mConnection");
-      UUID channelId = connection.getChannelKey().getChannelId();
+      String channelId = connection.getChannelKey().getChannelId();
       // Assert that authentication server has a login info for the channel.
       Assert.assertNotNull(server.getAuthenticationServer().getUserInfoForChannel(channelId));
       // Shutdown channel.
