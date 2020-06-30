@@ -59,7 +59,7 @@ public final class FileInfo implements Serializable {
   private long mLastModificationTimeMs;
   private long mLastAccessTimeMs;
   private long mTtl;
-  private TtlAction mTtlAction;
+  private TtlAction mTtlAction = TtlAction.FREE;
   private String mOwner = "";
   private String mGroup = "";
   private int mMode;
