@@ -201,9 +201,8 @@ public final class FileSystemMasterClientServiceHandler
     GetStatusPOptions options = request.getOptions();
     RpcUtils.call(LOG, () -> {
       AlluxioURI pathUri = getAlluxioURI(request.getPath());
-      return GetStatusPResponse.newBuilder()
-          .setFileInfo(GrpcUtils.toProto(
-              mFileSystemMaster.getFileInfo(pathUri, GetStatusContext.create(options.toBuilder()))))
+      return GetStatusPResponse.newBuilder().setFileInfo(
+          mFileSystemMaster.getFileInfo2(pathUri, GetStatusContext.create(options.toBuilder())))
           .build();
     }, "GetStatus", true, "request=%s", responseObserver, request);
   }

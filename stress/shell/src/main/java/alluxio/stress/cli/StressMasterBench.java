@@ -485,6 +485,10 @@ public class StressMasterBench extends Benchmark<MasterBenchTaskResult> {
             throw new IOException(String.format("Failed to delete (%s)", path));
           }
           break;
+        case WIPGetFileStatus:
+          path = new Path(mFixedBasePath, Long.toString(counter));
+          mFs.getFileStatus(path);
+          break;
         default:
           throw new IllegalStateException("Unknown operation: " + mParameters.mOperation);
       }

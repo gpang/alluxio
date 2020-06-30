@@ -29,5 +29,7 @@ public enum Operation {
 
   // Create dirs
   CreateDir, // create fixed-N, create more in extra
+
+  WIPGetFileStatus,
   ;
 }

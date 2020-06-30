@@ -58,7 +58,6 @@ import alluxio.heartbeat.HeartbeatContext;
 import alluxio.heartbeat.HeartbeatThread;
 import alluxio.job.plan.persist.PersistConfig;
 import alluxio.job.wire.JobInfo;
-import alluxio.master.file.contexts.CallTracker;
 import alluxio.master.CoreMaster;
 import alluxio.master.CoreMasterContext;
 import alluxio.master.ProtobufUtils;
@@ -67,6 +66,7 @@ import alluxio.master.audit.AuditContext;
 import alluxio.master.block.BlockId;
 import alluxio.master.block.BlockMaster;
 import alluxio.master.file.activesync.ActiveSyncManager;
+import alluxio.master.file.contexts.CallTracker;
 import alluxio.master.file.contexts.CheckConsistencyContext;
 import alluxio.master.file.contexts.CompleteFileContext;
 import alluxio.master.file.contexts.CompositeCallTracker;
@@ -401,6 +401,11 @@ public final class DefaultFileSystemMaster extends CoreMaster
       1, TimeUnit.MINUTES, new LinkedBlockingQueue<>(),
       ThreadFactoryUtils.build("alluxio-ufs-active-sync-%d", false));
 
+  private FileInfo mEmptyFileInfo = new FileInfo();
+  private alluxio.grpc.FileInfo mEmptyGrpcFileInfo = GrpcUtils.toProto(mEmptyFileInfo);
+  private FileInfo mRootFileInfo;
+  private alluxio.grpc.FileInfo mRootGrpcFileInfo;
+
   /**
    * Creates a new instance of {@link DefaultFileSystemMaster}.
    *
@@ -547,6 +552,14 @@ public final class DefaultFileSystemMaster extends CoreMaster
               .format("Unauthorized user on root. inode owner: %s current user: %s",
                   root.getOwner(), serverOwner)));
         }
+      }
+
+      try (LockedInodePath inodePath = mInodeTree
+          .lockInodePath(new AlluxioURI("/"), LockPattern.READ)) {
+        mRootFileInfo = getFileInfoInternal(inodePath);
+        mRootGrpcFileInfo = GrpcUtils.toProto(mRootFileInfo);
+      } catch (InvalidPathException | FileDoesNotExistException e) {
+        e.printStackTrace();
       }
 
       // Initialize the ufs manager from the mount table.
@@ -794,6 +807,13 @@ public final class DefaultFileSystemMaster extends CoreMaster
     try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(fileId, LockPattern.READ)) {
       return getFileInfoInternal(inodePath);
     }
+  }
+
+  @Override
+  public alluxio.grpc.FileInfo getFileInfo2(AlluxioURI path, GetStatusContext context)
+      throws FileDoesNotExistException, InvalidPathException, AccessControlException,
+      UnavailableException, IOException {
+    return GrpcUtils.toProto(mEmptyFileInfo);
   }
 
   @Override

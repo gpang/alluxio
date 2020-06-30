@@ -112,6 +112,10 @@ public interface FileSystemMaster extends Master {
       throws FileDoesNotExistException, InvalidPathException, AccessControlException,
       UnavailableException, IOException;
 
+  alluxio.grpc.FileInfo getFileInfo2(AlluxioURI path, GetStatusContext context)
+      throws FileDoesNotExistException, InvalidPathException, AccessControlException,
+      UnavailableException, IOException;
+
   /**
    * Returns the persistence state for a file id.
    *
