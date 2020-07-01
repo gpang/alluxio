@@ -4315,7 +4315,7 @@ public final class DefaultFileSystemMaster extends CoreMaster
           ServerConfiguration.getEnum(PropertyKey.SECURITY_AUTHENTICATION_TYPE, AuthType.class);
       auditContext.setUgi(ugi)
           .setAuthType(authType)
-          .setIp(ClientIpAddressInjector.getIpAddress())
+          .setIp(ClientIpAddressInjector.getIpAddress().toString())
           .setCommand(command).setSrcPath(srcPath).setDstPath(dstPath)
           .setSrcInode(srcInode).setAllowed(true);
     }

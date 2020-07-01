@@ -18,6 +18,8 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 
+import java.net.SocketAddress;
+
 /**
  * Server side interceptor that is used to put remote client's IP Address to thread local storage.
  */
@@ -27,12 +29,12 @@ public class ClientIpAddressInjector implements ServerInterceptor {
    * A {@link ThreadLocal} variable to maintain the client's IP address along with a specific
    * thread.
    */
-  private static ThreadLocal<String> sIpAddressThreadLocal = new ThreadLocal<>();
+  private static ThreadLocal<SocketAddress> sIpAddressThreadLocal = new ThreadLocal<>();
 
   /**
    * @return IP address of the gRPC client that is making the call
    */
-  public static String getIpAddress() {
+  public static SocketAddress getIpAddress() {
     return sIpAddressThreadLocal.get();
   }
 
@@ -60,7 +62,7 @@ public class ClientIpAddressInjector implements ServerInterceptor {
   }
 
   private <ReqT, RespT> void setRemoteIpAddress(ServerCall<ReqT, RespT> call) {
-    String remoteIpAddress = call.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR).toString();
+    SocketAddress remoteIpAddress = call.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR);
     sIpAddressThreadLocal.set(remoteIpAddress);
   }
 }

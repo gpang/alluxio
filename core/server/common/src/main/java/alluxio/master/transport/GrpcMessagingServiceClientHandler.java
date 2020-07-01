@@ -74,7 +74,7 @@ public class GrpcMessagingServiceClientHandler
     // Transport level identifier for this connection.
     String transportId = MoreObjects.toStringHelper(this)
         .add("ServerAddress", mServerAddress)
-        .add("ClientAddress", ClientIpAddressInjector.getIpAddress())
+//        .add("ClientAddress", ClientIpAddressInjector.getIpAddress())
         .toString();
     LOG.debug("Creating a messaging server connection: {}", transportId);
 
