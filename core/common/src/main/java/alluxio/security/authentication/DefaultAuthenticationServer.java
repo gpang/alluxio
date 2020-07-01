@@ -27,6 +27,7 @@ import net.jcip.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +49,7 @@ public class DefaultAuthenticationServer
     extends SaslAuthenticationServiceGrpc.SaslAuthenticationServiceImplBase
     implements AuthenticationServer {
   private static final Logger LOG = LoggerFactory.getLogger(DefaultAuthenticationServer.class);
+  private static final Clock DEFAULT_CLOCK = Clock.systemDefaultZone();
 
   /** List of channels authenticated against this server. */
   protected final ConcurrentHashMap<String, AuthenticatedChannelInfo> mChannels;
@@ -153,7 +155,7 @@ public class DefaultAuthenticationServer
    * stale.
    */
   private void cleanupStaleClients() {
-    LocalTime cleanupTime = LocalTime.now();
+    LocalTime cleanupTime = LocalTime.now(DEFAULT_CLOCK);
     LOG.debug("Starting cleanup authentication registry at {}", cleanupTime);
     // Get a list of stale clients under read lock.
     List<String> staleChannels = new ArrayList<>();
@@ -168,7 +170,9 @@ public class DefaultAuthenticationServer
     for (String clientId : staleChannels) {
       mChannels.remove(clientId).getSaslServerDriver().close();
     }
-    LOG.debug("Finished state channel cleanup at {}", LocalTime.now());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Finished state channel cleanup at {}", LocalTime.now(DEFAULT_CLOCK));
+    }
   }
 
   /**
@@ -206,11 +210,11 @@ public class DefaultAuthenticationServer
         AuthenticatedChannelServerDriver saslServerDriver) {
       mUserInfo = userInfo;
       mSaslServerDriver = saslServerDriver;
-      mLastAccessTime = LocalTime.now();
+      mLastAccessTime = LocalTime.now(DEFAULT_CLOCK);
     }
 
     private synchronized void updateLastAccessTime() {
-      mLastAccessTime = LocalTime.now();
+      mLastAccessTime = LocalTime.now(DEFAULT_CLOCK);
     }
 
     /**
