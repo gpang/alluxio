@@ -77,11 +77,6 @@ public class StressClientIOBench extends Benchmark<ClientIOTaskResult> {
 
   @Override
   public void prepare() throws Exception {
-    if (mBaseParameters.mCluster && mBaseParameters.mClusterLimit != 1) {
-      throw new IllegalArgumentException(String.format(
-          "%s is a single-node client IO stress test, so it cannot be run in cluster mode without"
-              + " flag '%s 1'.", this.getClass().getName(), BaseParameters.CLUSTER_LIMIT_FLAG));
-    }
     if (FormatUtils.parseSpaceSize(mParameters.mFileSize) < FormatUtils
         .parseSpaceSize(mParameters.mBufferSize)) {
       throw new IllegalArgumentException(String

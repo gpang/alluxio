@@ -225,15 +225,19 @@ public final class ClientIOTaskResult implements TaskResult, Summary {
     @Override
     public ClientIOTaskResult aggregate(Iterable<ClientIOTaskResult> results) throws Exception {
       Iterator<ClientIOTaskResult> it = results.iterator();
-      if (it.hasNext()) {
+      ClientIOTaskResult agg = new ClientIOTaskResult();
+      while (it.hasNext()) {
         ClientIOTaskResult taskResult = it.next();
-        if (it.hasNext()) {
-          throw new IOException(
-              "ClientIO is a single node test, so multiple task results cannot be aggregated.");
+        for (Map.Entry<Integer, ThreadCountResult> entry : taskResult.mThreadCountResults
+            .entrySet()) {
+          ThreadCountResult tcr =
+              agg.mThreadCountResults.getOrDefault(entry.getKey(), new ThreadCountResult());
+          tcr.merge(entry.getValue());
+          agg.mThreadCountResults.put(entry.getKey(), tcr);
+          agg.setParameters(taskResult.mParameters);
         }
-        return taskResult;
       }
-      return new ClientIOTaskResult();
+      return agg;
     }
   }
 
