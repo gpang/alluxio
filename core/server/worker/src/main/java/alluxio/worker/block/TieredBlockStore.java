@@ -833,6 +833,7 @@ public class TieredBlockStore implements BlockStore {
   private void removeBlockInternal(long sessionId, long blockId, BlockStoreLocation location)
       throws InvalidWorkerStateException, BlockDoesNotExistException, IOException {
     long lockId = mLockManager.lockBlock(sessionId, blockId, BlockLockType.WRITE);
+    long startMs = System.currentTimeMillis();
     try {
       String filePath;
       BlockMeta blockMeta;
@@ -857,6 +858,12 @@ public class TieredBlockStore implements BlockStore {
         throw Throwables.propagate(e); // we shall never reach here
       }
     } finally {
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - removeBlockInternal blockId: {} location: {} time: {} ",
+            Thread.currentThread().getName(), blockId, location, time);
+      }
       mLockManager.unlockBlock(lockId);
     }
   }
