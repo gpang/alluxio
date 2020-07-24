@@ -145,7 +145,7 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
         long endMs2 = System.currentTimeMillis();
         long time2 = endMs2 - startMs2;
         if (time2 > 40) {
-          LOG.info("{} - write.thread time: {} ", Thread.currentThread().getName(), time);
+          LOG.info("{} - write.thread time: {} ", Thread.currentThread().getName(), time2);
         }
         mSemaphore.release();
       }
