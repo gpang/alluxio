@@ -72,8 +72,8 @@ public final class LocalFileBlockWriter implements BlockWriter {
     if (buf instanceof CompositeByteBuf) {
       CompositeByteBuf cbuf = ((CompositeByteBuf) buf);
       for (int i = 0; i < cbuf.numComponents(); i++) {
-        LOG.info("    {} - append.component {} buf: {}", Thread.currentThread().getName(), i,
-            cbuf.component(i));
+        LOG.info("    {} - append.component {} buf: {} unwrap: {}", Thread.currentThread().getName(), i,
+            cbuf.component(i), cbuf.component(i).unwrap());
       }
     }
     long startMs = System.currentTimeMillis();
