@@ -56,6 +56,9 @@ public final class LocalFileBlockWriter implements BlockWriter {
 
   @Override
   public long append(ByteBuffer inputBuf) throws IOException {
+    LOG.info("{} - LocalFileBlockWriter.append(ByteBuffer) pos: {} length: {}",
+        Thread.currentThread().getName(), inputBuf.position(),
+        inputBuf.limit() - inputBuf.position());
     long bytesWritten = write(mLocalFileChannel.size(), inputBuf.duplicate());
     mPosition += bytesWritten;
     return bytesWritten;
@@ -63,6 +66,8 @@ public final class LocalFileBlockWriter implements BlockWriter {
 
   @Override
   public long append(ByteBuf buf) throws IOException {
+    LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
+        Thread.currentThread().getName(), buf.readableBytes());
     long bytesWritten = buf.readBytes(mLocalFileChannel, buf.readableBytes());
     mPosition += bytesWritten;
     return bytesWritten;
@@ -76,6 +81,8 @@ public final class LocalFileBlockWriter implements BlockWriter {
     } catch (Throwable e) {
       LOG.debug("Failed to get ByteBuf from DataBuffer, write performance may be degraded.");
     }
+    LOG.info("{} - LocalFileBlockWriter.append(DataBuffer) bytebuf: {} length: {}",
+        Thread.currentThread().getName(), bytebuf, buffer.getLength());
     if (bytebuf != null) {
       return append(bytebuf);
     }
