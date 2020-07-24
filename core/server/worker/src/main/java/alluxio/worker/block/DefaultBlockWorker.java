@@ -12,13 +12,13 @@
 package alluxio.worker.block;
 
 import alluxio.ClientContext;
-import alluxio.conf.ServerConfiguration;
 import alluxio.Constants;
-import alluxio.conf.PropertyKey;
 import alluxio.RuntimeConstants;
 import alluxio.Server;
 import alluxio.Sessions;
 import alluxio.StorageTierAssoc;
+import alluxio.conf.PropertyKey;
+import alluxio.conf.ServerConfiguration;
 import alluxio.exception.BlockAlreadyExistsException;
 import alluxio.exception.BlockDoesNotExistException;
 import alluxio.exception.ExceptionMessage;
@@ -628,8 +628,22 @@ public final class DefaultBlockWorker extends AbstractWorker implements BlockWor
     @Override
     public void heartbeat() {
       try {
+        long startMs = System.currentTimeMillis();
         if (mBlockStore.checkStorage()) {
+          long endMs = System.currentTimeMillis();
+          long time = endMs - startMs;
+          if (time > 40) {
+            LOG.info("{} - health.checkStorage() time: {} ", Thread.currentThread().getName(),
+                time);
+          }
+          startMs = System.currentTimeMillis();
           mSpaceReserver.updateStorageInfo();
+          endMs = System.currentTimeMillis();
+          time = endMs - startMs;
+          if (time > 40) {
+            LOG.info("{} - health.updateStorageInfo() time: {} ", Thread.currentThread().getName(),
+                time);
+          }
         }
       } catch (Exception e) {
         LOG.warn("Failed to check storage: {}", e.toString());
