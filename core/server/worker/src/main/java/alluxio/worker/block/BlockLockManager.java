@@ -111,7 +111,14 @@ public final class BlockLockManager {
       }
       lock = blockLock.writeLock();
     }
+    long startMs = System.currentTimeMillis();
     lock.lock();
+    long endMs = System.currentTimeMillis();
+    long time = endMs - startMs;
+    if (time > 40) {
+      LOG.info("{} - blockId: {} type: {} lock: {} time: {} ", Thread.currentThread().getName(),
+          blockId, blockLockType, lock.toString(), time);
+    }
     try {
       long lockId = LOCK_ID_GEN.getAndIncrement();
       try (LockResource r = new LockResource(mSharedMapsLock.writeLock())) {

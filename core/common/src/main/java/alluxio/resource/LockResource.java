@@ -79,7 +79,7 @@ public class LockResource implements Closeable {
       mLock.lock();
       long endMs = System.currentTimeMillis();
       long time = endMs - startMs;
-      if (time > 10) {
+      if (time > 40) {
         LOG.info("{} - lock: {} time: {} ", Thread.currentThread().getName(), lock.toString(),
             time);
       }
