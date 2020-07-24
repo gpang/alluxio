@@ -75,10 +75,9 @@ public final class LocalFileBlockWriter implements BlockWriter {
           unwrap = unwrap.unwrap();
         }
         LOG.info(
-            "    {} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {} component: {} buf: "
-                + "{} lastUnwrap: {} lastAlloc: {}",
-            Thread.currentThread().getName(), buf.readableBytes(), i, cbuf.component(i), unwrap,
-            unwrap.alloc());
+            "    {} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {} component: {} "
+                + "lastUnwrap: {} lastAlloc: {}",
+            Thread.currentThread().getName(), buf.readableBytes(), i, unwrap, unwrap.alloc());
       }
     } else {
       LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
@@ -89,7 +88,8 @@ public final class LocalFileBlockWriter implements BlockWriter {
     long endMs = System.currentTimeMillis();
     long time = endMs - startMs;
     if (time > 40) {
-      LOG.info("    {} - append.readBytes() time: {} ", Thread.currentThread().getName(), time);
+      LOG.info("    {} - append.readBytes() time: {} totalMem: {}",
+          Thread.currentThread().getName(), time, Runtime.getRuntime().totalMemory());
     }
     mPosition += bytesWritten;
     return bytesWritten;
