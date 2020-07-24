@@ -67,14 +67,22 @@ public final class LocalFileBlockWriter implements BlockWriter {
 
   @Override
   public long append(ByteBuf buf) throws IOException {
-    LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
-        Thread.currentThread().getName(), buf.readableBytes());
     if (buf instanceof CompositeByteBuf) {
       CompositeByteBuf cbuf = ((CompositeByteBuf) buf);
       for (int i = 0; i < cbuf.numComponents(); i++) {
-        LOG.info("    {} - append.component {} buf: {} unwrap: {}", Thread.currentThread().getName(), i,
-            cbuf.component(i), cbuf.component(i).unwrap());
+        ByteBuf unwrap = cbuf.component(i);
+        while (unwrap.unwrap() != null) {
+          unwrap = unwrap.unwrap();
+        }
+        LOG.info(
+            "    {} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {} component: {} buf: "
+                + "{} lastUnwrap: {} lastAlloc: {}",
+            Thread.currentThread().getName(), buf.readableBytes(), i, cbuf.component(i), unwrap,
+            unwrap.alloc());
       }
+    } else {
+      LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
+          Thread.currentThread().getName(), buf.readableBytes());
     }
     long startMs = System.currentTimeMillis();
     long bytesWritten = buf.readBytes(mLocalFileChannel, buf.readableBytes());
