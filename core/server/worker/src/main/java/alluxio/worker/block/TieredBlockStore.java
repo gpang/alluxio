@@ -11,12 +11,12 @@
 
 package alluxio.worker.block;
 
-import alluxio.conf.ServerConfiguration;
-import alluxio.conf.PropertyKey;
 import alluxio.Sessions;
 import alluxio.StorageTierAssoc;
 import alluxio.WorkerStorageTierAssoc;
 import alluxio.collections.Pair;
+import alluxio.conf.PropertyKey;
+import alluxio.conf.ServerConfiguration;
 import alluxio.exception.BlockAlreadyExistsException;
 import alluxio.exception.BlockDoesNotExistException;
 import alluxio.exception.ExceptionMessage;
@@ -267,9 +267,25 @@ public class TieredBlockStore implements BlockStore {
       IOException {
     LOG.debug("commitBlock: sessionId={}, blockId={}", sessionId, blockId);
     BlockStoreLocation loc = commitBlockInternal(sessionId, blockId, pinOnCreate);
+    long startMs = System.currentTimeMillis();
     synchronized (mBlockStoreEventListeners) {
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - commitBlock.sync(listeners) blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
+      }
+      startMs = System.currentTimeMillis();
+
       for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
         listener.onCommitBlock(sessionId, blockId, loc);
+      }
+
+      endMs = System.currentTimeMillis();
+      time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - commitBlock.listeners blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
       }
     }
   }
@@ -279,9 +295,25 @@ public class TieredBlockStore implements BlockStore {
       BlockDoesNotExistException, InvalidWorkerStateException, IOException {
     LOG.debug("abortBlock: sessionId={}, blockId={}", sessionId, blockId);
     abortBlockInternal(sessionId, blockId);
+    long startMs = System.currentTimeMillis();
     synchronized (mBlockStoreEventListeners) {
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - abortBlock.sync(listeners) blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
+      }
+      startMs = System.currentTimeMillis();
+
       for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
         listener.onAbortBlock(sessionId, blockId);
+      }
+
+      endMs = System.currentTimeMillis();
+      time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - abortBlock.listeners blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
       }
     }
   }
@@ -323,10 +355,26 @@ public class TieredBlockStore implements BlockStore {
     while (retryPolicy.attempt()) {
       MoveBlockResult result = moveBlockInternal(sessionId, blockId, oldLocation, newLocation);
       if (result.getSuccess()) {
+        long startMs = System.currentTimeMillis();
         synchronized (mBlockStoreEventListeners) {
+          long endMs = System.currentTimeMillis();
+          long time = endMs - startMs;
+          if (time > 40) {
+            LOG.info("{} - moveBlock.sync(listeners) blockId: {} time: {} ",
+                Thread.currentThread().getName(), blockId, time);
+          }
+          startMs = System.currentTimeMillis();
+
           for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
             listener.onMoveBlockByClient(sessionId, blockId, result.getSrcLocation(),
                 result.getDstLocation());
+          }
+
+          endMs = System.currentTimeMillis();
+          time = endMs - startMs;
+          if (time > 40) {
+            LOG.info("{} - moveBlock.listeners blockId: {} time: {} ",
+                Thread.currentThread().getName(), blockId, time);
           }
         }
         return;
@@ -349,9 +397,25 @@ public class TieredBlockStore implements BlockStore {
       throws InvalidWorkerStateException, BlockDoesNotExistException, IOException {
     LOG.debug("removeBlock: sessionId={}, blockId={}, location={}", sessionId, blockId, location);
     removeBlockInternal(sessionId, blockId, location);
+    long startMs = System.currentTimeMillis();
     synchronized (mBlockStoreEventListeners) {
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - removeBlock.sync(listeners) blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
+      }
+      startMs = System.currentTimeMillis();
+
       for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
         listener.onRemoveBlockByClient(sessionId, blockId);
+      }
+
+      endMs = System.currentTimeMillis();
+      time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - removeBlock.listeners blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
       }
     }
   }
@@ -366,9 +430,25 @@ public class TieredBlockStore implements BlockStore {
     if (!hasBlock) {
       throw new BlockDoesNotExistException(ExceptionMessage.NO_BLOCK_ID_FOUND, blockId);
     }
+    long startMs = System.currentTimeMillis();
     synchronized (mBlockStoreEventListeners) {
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - accessBlock.sync(listeners) blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
+      }
+      startMs = System.currentTimeMillis();
+
       for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
         listener.onAccessBlock(sessionId, blockId);
+      }
+
+      endMs = System.currentTimeMillis();
+      time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - accessBlock.listeners blockId: {} time: {} ",
+            Thread.currentThread().getName(), blockId, time);
       }
     }
   }
@@ -437,7 +517,14 @@ public class TieredBlockStore implements BlockStore {
   @Override
   public void registerBlockStoreEventListener(BlockStoreEventListener listener) {
     LOG.debug("registerBlockStoreEventListener: listener={}", listener);
+    long startMs = System.currentTimeMillis();
     synchronized (mBlockStoreEventListeners) {
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 40) {
+        LOG.info("{} - registerBlockStoreEventListener.sync(listeners) time: {} ",
+            Thread.currentThread().getName(), time);
+      }
       mBlockStoreEventListeners.add(listener);
     }
   }
@@ -675,9 +762,25 @@ public class TieredBlockStore implements BlockStore {
         LOG.info("Failed to evict blockId {}, it could be already deleted", blockInfo.getFirst());
         continue;
       }
+      long startMs = System.currentTimeMillis();
       synchronized (mBlockStoreEventListeners) {
+        long endMs = System.currentTimeMillis();
+        long time = endMs - startMs;
+        if (time > 40) {
+          LOG.info("{} - freeSpaceInternal.remove.sync(listeners) blockId: {} time: {} ",
+              Thread.currentThread().getName(), blockInfo.getFirst(), time);
+        }
+        startMs = System.currentTimeMillis();
+
         for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
           listener.onRemoveBlockByWorker(sessionId, blockInfo.getFirst());
+        }
+
+        endMs = System.currentTimeMillis();
+        time = endMs - startMs;
+        if (time > 40) {
+          LOG.info("{} - freeSpaceInternal.remove.listeners blockId: {} time: {} ",
+              Thread.currentThread().getName(), blockInfo.getFirst(), time);
         }
       }
     }
@@ -717,10 +820,26 @@ public class TieredBlockStore implements BlockStore {
           continue;
         }
         if (moveResult.getSuccess()) {
+          long startMs = System.currentTimeMillis();
           synchronized (mBlockStoreEventListeners) {
+            long endMs = System.currentTimeMillis();
+            long time = endMs - startMs;
+            if (time > 40) {
+              LOG.info("{} - freeSpaceInternal.move.sync(listeners) blockId: {} time: {} ",
+                  Thread.currentThread().getName(), blockId, time);
+            }
+            startMs = System.currentTimeMillis();
+
             for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
               listener.onMoveBlockByWorker(sessionId, blockId, moveResult.getSrcLocation(),
                   newLocation);
+            }
+
+            endMs = System.currentTimeMillis();
+            time = endMs - startMs;
+            if (time > 40) {
+              LOG.info("{} - freeSpaceInternal.move.listeners blockId: {} time: {} ",
+                  Thread.currentThread().getName(), blockId, time);
             }
           }
         }
@@ -939,10 +1058,26 @@ public class TieredBlockStore implements BlockStore {
     try (LockResource r = new LockResource(mMetadataWriteLock)) {
       String tierAlias = dir.getParentTier().getTierAlias();
       dir.getParentTier().removeStorageDir(dir);
+      long startMs = System.currentTimeMillis();
       synchronized (mBlockStoreEventListeners) {
+        long endMs = System.currentTimeMillis();
+        long time = endMs - startMs;
+        if (time > 40) {
+          LOG.info("{} - removeDir.sync(listeners) dir: {} time: {} ",
+              Thread.currentThread().getName(), dir.getDirPath(), time);
+        }
+        startMs = System.currentTimeMillis();
+
         for (BlockStoreEventListener listener : mBlockStoreEventListeners) {
           dir.getBlockIds().forEach(listener::onBlockLost);
           listener.onStorageLost(tierAlias, dir.getDirPath());
+        }
+
+        endMs = System.currentTimeMillis();
+        time = endMs - startMs;
+        if (time > 40) {
+          LOG.info("{} - removeDir.listeners dir: {} time: {} ",
+              Thread.currentThread().getName(), dir.getDirPath(), time);
         }
       }
     }
