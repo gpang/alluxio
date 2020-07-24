@@ -88,8 +88,9 @@ public final class LocalFileBlockWriter implements BlockWriter {
     long endMs = System.currentTimeMillis();
     long time = endMs - startMs;
     if (time > 40) {
-      LOG.info("    {} - append.readBytes() time: {} totalMem: {}",
-          Thread.currentThread().getName(), time, Runtime.getRuntime().totalMemory());
+      LOG.info("    {} - append.readBytes() time: {} totalMem: {} usedMem: {}",
+          Thread.currentThread().getName(), time, Runtime.getRuntime().totalMemory(),
+          Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
     }
     mPosition += bytesWritten;
     return bytesWritten;
