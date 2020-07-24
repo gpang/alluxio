@@ -75,7 +75,14 @@ public class LockResource implements Closeable {
     mLock = lock;
     mCloseAction = closeAction;
     if (acquireLock) {
+      long startMs = System.currentTimeMillis();
       mLock.lock();
+      long endMs = System.currentTimeMillis();
+      long time = endMs - startMs;
+      if (time > 10) {
+        LOG.info("{} - lock: {} time: {} ", Thread.currentThread().getName(), lock.toString(),
+            time);
+      }
     }
   }
 
