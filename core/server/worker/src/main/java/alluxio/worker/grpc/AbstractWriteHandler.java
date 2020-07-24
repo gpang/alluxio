@@ -99,10 +99,17 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
    * @param writeRequest the request from the client
    */
   public void write(WriteRequest writeRequest) {
+    long startMs = System.currentTimeMillis();
     if (!tryAcquireSemaphore()) {
       return;
     }
+    long endMs = System.currentTimeMillis();
+    long time = endMs - startMs;
+    if (time > 40) {
+      LOG.info("{} - write.semaphore time: {} ", Thread.currentThread().getName(), time);
+    }
     mSerializingExecutor.execute(() -> {
+      long startMs2 = System.currentTimeMillis();
       try {
         if (mContext == null) {
           LOG.debug("Received write request {}.", writeRequest);
@@ -135,6 +142,11 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
             writeRequest, e);
         abort(new Error(AlluxioStatusException.fromThrowable(e), true));
       } finally {
+        long endMs2 = System.currentTimeMillis();
+        long time2 = endMs2 - startMs2;
+        if (time2 > 40) {
+          LOG.info("{} - write.thread time: {} ", Thread.currentThread().getName(), time);
+        }
         mSemaphore.release();
       }
     });
