@@ -17,6 +17,7 @@ import alluxio.util.io.BufferUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.io.Closer;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,9 +57,9 @@ public final class LocalFileBlockWriter implements BlockWriter {
 
   @Override
   public long append(ByteBuffer inputBuf) throws IOException {
-    LOG.info("{} - LocalFileBlockWriter.append(ByteBuffer) pos: {} length: {}",
-        Thread.currentThread().getName(), inputBuf.position(),
-        inputBuf.limit() - inputBuf.position());
+//    LOG.info("{} - LocalFileBlockWriter.append(ByteBuffer) pos: {} length: {}",
+//        Thread.currentThread().getName(), inputBuf.position(),
+//        inputBuf.limit() - inputBuf.position());
     long bytesWritten = write(mLocalFileChannel.size(), inputBuf.duplicate());
     mPosition += bytesWritten;
     return bytesWritten;
@@ -68,7 +69,20 @@ public final class LocalFileBlockWriter implements BlockWriter {
   public long append(ByteBuf buf) throws IOException {
     LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
         Thread.currentThread().getName(), buf.readableBytes());
+    if (buf instanceof CompositeByteBuf) {
+      CompositeByteBuf cbuf = ((CompositeByteBuf) buf);
+      for (int i = 0; i < cbuf.numComponents(); i++) {
+        LOG.info("    {} - append.component {} buf: {}", Thread.currentThread().getName(), i,
+            cbuf.component(i));
+      }
+    }
+    long startMs = System.currentTimeMillis();
     long bytesWritten = buf.readBytes(mLocalFileChannel, buf.readableBytes());
+    long endMs = System.currentTimeMillis();
+    long time = endMs - startMs;
+    if (time > 40) {
+      LOG.info("    {} - append.readBytes() time: {} ", Thread.currentThread().getName(), time);
+    }
     mPosition += bytesWritten;
     return bytesWritten;
   }
@@ -81,8 +95,8 @@ public final class LocalFileBlockWriter implements BlockWriter {
     } catch (Throwable e) {
       LOG.debug("Failed to get ByteBuf from DataBuffer, write performance may be degraded.");
     }
-    LOG.info("{} - LocalFileBlockWriter.append(DataBuffer) bytebuf: {} length: {}",
-        Thread.currentThread().getName(), bytebuf, buffer.getLength());
+//    LOG.info("{} - LocalFileBlockWriter.append(DataBuffer) bytebuf: {} length: {}",
+//        Thread.currentThread().getName(), bytebuf, buffer.getLength());
     if (bytebuf != null) {
       return append(bytebuf);
     }
