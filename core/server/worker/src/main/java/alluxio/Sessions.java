@@ -11,8 +11,8 @@
 
 package alluxio;
 
-import alluxio.conf.ServerConfiguration;
 import alluxio.conf.PropertyKey;
+import alluxio.conf.ServerConfiguration;
 import alluxio.util.IdUtils;
 
 import org.slf4j.Logger;
@@ -94,6 +94,8 @@ public final class Sessions {
             .getMs(PropertyKey.WORKER_SESSION_TIMEOUT_MS);
         mSessions.put(sessionId, new SessionInfo(sessionId, sessionTimeoutMs));
       }
+      LOG.info("{} - sessionHeartbeat sessionId: {} sessions.size(): {}",
+          Thread.currentThread().getName(), sessionId, mSessions.size());
     }
   }
 
