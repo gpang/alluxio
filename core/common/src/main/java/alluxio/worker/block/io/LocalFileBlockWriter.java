@@ -74,14 +74,14 @@ public final class LocalFileBlockWriter implements BlockWriter {
         while (unwrap.unwrap() != null) {
           unwrap = unwrap.unwrap();
         }
-        LOG.info(
-            "    {} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {} component: {} "
-                + "lastUnwrap: {} lastAlloc: {}",
-            Thread.currentThread().getName(), buf.readableBytes(), i, unwrap, unwrap.alloc());
+//        LOG.info(
+//            "    {} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {} component: {} "
+//                + "lastUnwrap: {} lastAlloc: {}",
+//            Thread.currentThread().getName(), buf.readableBytes(), i, unwrap, unwrap.alloc());
       }
     } else {
-      LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
-          Thread.currentThread().getName(), buf.readableBytes());
+//      LOG.info("{} - LocalFileBlockWriter.append(ByteBuf) readableBytes: {}",
+//          Thread.currentThread().getName(), buf.readableBytes());
     }
     long startMs = System.currentTimeMillis();
     long bytesWritten = buf.readBytes(mLocalFileChannel, buf.readableBytes());
