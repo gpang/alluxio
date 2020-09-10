@@ -41,6 +41,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -64,8 +65,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.security.Key;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -256,12 +264,16 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
     mRaftGroup = RaftGroup.valueOf(mRaftGroupId, peers);
 
     RaftProperties properties = new RaftProperties();
+    Parameters parameters = new Parameters();
 
     // TODO(feng): implement a custom RpcType to integrate with Alluxio authentication service
     RaftConfigKeys.Rpc.setType(properties, SupportedRpcType.GRPC);
 
     // RPC port
     GrpcConfigKeys.Server.setPort(properties, localAddress.getPort());
+
+    // TLS transport
+    configureTLS(properties, parameters);
 
     // storage path
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(mConf.getPath()));
@@ -309,11 +321,14 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
         .setGroup(mRaftGroup)
         .setStateMachine(mStateMachine)
         .setProperties(properties)
+        .setParameters(parameters)
         .build();
   }
 
   private RaftClient createClient() {
     RaftProperties properties = new RaftProperties();
+    Parameters parameters = new Parameters();
+
     RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
         TimeDuration.valueOf(15, TimeUnit.SECONDS));
     RetryPolicy retryPolicy = ExponentialBackoffRetry.newBuilder()
@@ -321,13 +336,60 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
         .setMaxAttempts(10)
         .setMaxSleepTime(TimeDuration.ONE_SECOND)
         .build();
+
+    configureTLS(properties, parameters);
+
     return RaftClient.newBuilder()
         .setRaftGroup(mRaftGroup)
         .setLeaderId(null)
         .setProperties(properties)
-        .setParameters(new Parameters())
+        .setParameters(parameters)
         .setRetryPolicy(retryPolicy)
         .build();
+  }
+
+  private void configureTLS(RaftProperties properties, Parameters parameters) {
+    // Configure TLS
+    GrpcConfigKeys.TLS.setEnabled(properties, true);
+    GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
+    File serverKey = new File("/Users/gpang/ssl/pem2/serverkey.pem");
+    File serverCrt = new File("/Users/gpang/ssl/pem2/servercert.pem");
+    File cacrt = new File("/Users/gpang/ssl/pem2/cacert.pem");
+    GrpcConfigKeys.TLS.setConf(parameters, new GrpcTlsConfig(serverKey, serverCrt, cacrt, true));
+
+    String keystore = "/Users/gpang/ssl/with-ca/keystore.jks";
+    String storePassword ="storepass";
+    String keyPassword = "keypass";
+
+    PrivateKey privateKey = null;
+    X509Certificate x509cert = null;
+    try (InputStream inputStream = new FileInputStream(keystore)) {
+      KeyStore ks = KeyStore.getInstance("JKS");
+      ks.load(inputStream, storePassword != null ? storePassword.toCharArray() : null);
+
+      List<String> aliases = Collections.list(ks.aliases());
+      String aliasName = "cakey";
+      LOG.info("alias: {}", aliases);
+      Key key = ks.getKey(aliasName, keyPassword.toCharArray());
+      Certificate cert = ks.getCertificate(aliasName);
+
+      if (key instanceof PrivateKey) {
+        privateKey = (PrivateKey) key;
+      }
+      if (cert instanceof X509Certificate) {
+        x509cert = (X509Certificate) cert;
+      }
+      if (privateKey != null && x509cert != null) {
+        GrpcConfigKeys.TLS.setEnabled(properties, true);
+        GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, false);
+        GrpcConfigKeys.TLS.setConf(parameters, new GrpcTlsConfig(null, null, x509cert, false));
+        LOG.info("TLS: {}", parameters);
+      }
+
+    } catch (Exception e) {
+      LOG.error("error", e);
+    }
+
   }
 
   /**
