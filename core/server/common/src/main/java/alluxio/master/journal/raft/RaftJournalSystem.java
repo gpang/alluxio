@@ -352,8 +352,8 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
     // Configure TLS
     GrpcConfigKeys.TLS.setEnabled(properties, true);
     GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
-    File serverKey = new File("/Users/gpang/ssl/server.key.pem");
-    File serverCrt = new File("/Users/gpang/ssl/server.cert.pem");
+    File serverKey = new File("/home/ec2-user/ssl/server.key.pem");
+    File serverCrt = new File("/home/ec2-user/ssl/server.cert.pem");
     File cacrt = new File("/home/ec2-user/ssl/pem/cacert.pem");
     GrpcConfigKeys.TLS.setConf(parameters, new GrpcTlsConfig(serverKey, serverCrt, cacrt, true));
 
