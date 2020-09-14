@@ -394,6 +394,7 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
 
     } catch (Exception e) {
       LOG.error("error", e);
+      throw new RuntimeException(e);
     }
 
   }
