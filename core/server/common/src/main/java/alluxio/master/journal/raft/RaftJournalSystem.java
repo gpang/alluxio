@@ -350,45 +350,51 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
 
   private void configureTLS(RaftProperties properties, Parameters parameters) {
     // Configure TLS
-    GrpcConfigKeys.TLS.setEnabled(properties, true);
-    GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
-    File serverKey = new File("/home/ec2-user/ssl/server.key.pem");
-    File serverCrt = new File("/home/ec2-user/ssl/server.cert.pem");
-    File cacrt = new File("/home/ec2-user/ssl/pem/cacert.pem");
-    GrpcConfigKeys.TLS.setConf(parameters, new GrpcTlsConfig(serverKey, serverCrt, cacrt, true));
+    // this works for ca-signed, and hostname correct pem files
+//    GrpcConfigKeys.TLS.setEnabled(properties, true);
+//    GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
+//    File serverKey = new File("/home/ec2-user/ssl/server.key.pem");
+//    File serverCrt = new File("/home/ec2-user/ssl/server.cert.pem");
+//    File cacrt = new File("/home/ec2-user/ssl/pem/cacert.pem");
+//    GrpcConfigKeys.TLS.setConf(parameters, new GrpcTlsConfig(serverKey, serverCrt, cacrt, true));
 
-//    String keystore = "/Users/gpang/ssl/with-ca/keystore.jks";
-//    String storePassword ="storepass";
-//    String keyPassword = "keypass";
-//
-//    PrivateKey privateKey = null;
-//    X509Certificate x509cert = null;
-//    try (InputStream inputStream = new FileInputStream(keystore)) {
-//      KeyStore ks = KeyStore.getInstance("JKS");
-//      ks.load(inputStream, storePassword != null ? storePassword.toCharArray() : null);
-//
-//      List<String> aliases = Collections.list(ks.aliases());
-//      String aliasName = "cakey";
-//      LOG.info("alias: {}", aliases);
-//      Key key = ks.getKey(aliasName, keyPassword.toCharArray());
-//      Certificate cert = ks.getCertificate(aliasName);
-//
-//      if (key instanceof PrivateKey) {
-//        privateKey = (PrivateKey) key;
-//      }
-//      if (cert instanceof X509Certificate) {
-//        x509cert = (X509Certificate) cert;
-//      }
-//      if (privateKey != null && x509cert != null) {
-//        GrpcConfigKeys.TLS.setEnabled(properties, true);
-//        GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, false);
-//        GrpcConfigKeys.TLS.setConf(parameters, new GrpcTlsConfig(null, null, x509cert, false));
-//        LOG.info("TLS: {}", parameters);
-//      }
-//
-//    } catch (Exception e) {
-//      LOG.error("error", e);
-//    }
+
+
+    String keystore = "/home/ec2-user/ssl/jks/server.jks";
+    String storePassword ="storepass";
+    String keyPassword = "keypass";
+
+    PrivateKey privateKey = null;
+    X509Certificate x509cert = null;
+    try (InputStream inputStream = new FileInputStream(keystore)) {
+      KeyStore ks = KeyStore.getInstance("JKS");
+      ks.load(inputStream, storePassword != null ? storePassword.toCharArray() : null);
+
+      List<String> aliases = Collections.list(ks.aliases());
+      String aliasName = "certificatekey";
+      LOG.info("alias: {}", aliases);
+      Key key = ks.getKey(aliasName, keyPassword.toCharArray());
+      Certificate cert = ks.getCertificate(aliasName);
+
+      if (key instanceof PrivateKey) {
+        privateKey = (PrivateKey) key;
+      }
+      if (cert instanceof X509Certificate) {
+        x509cert = (X509Certificate) cert;
+      }
+      if (privateKey != null && x509cert != null) {
+        X509Certificate cacert = (X509Certificate) ks.getCertificate(aliasName);
+
+        GrpcConfigKeys.TLS.setEnabled(properties, true);
+        GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
+        GrpcConfigKeys.TLS
+            .setConf(parameters, new GrpcTlsConfig(privateKey, x509cert, cacert, true));
+        LOG.info("TLS: {}", parameters);
+      }
+
+    } catch (Exception e) {
+      LOG.error("error", e);
+    }
 
   }
 
