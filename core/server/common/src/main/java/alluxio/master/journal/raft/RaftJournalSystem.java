@@ -361,18 +361,44 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
 
 
     String keystore = "/home/ec2-user/ssl/jks/server.jks";
+    String truststore = "/home/ec2-user/ssl/jks/truststore.jks";
+
+//    String keystore = "/Users/gpang/ssl/jks/localhost.jks";
+//    String truststore = "/Users/gpang/ssl/jks/truststore.jks";
+
     String storePassword ="storepass";
     String keyPassword = "keypass";
+    String trustPassword ="trustpass";
 
     PrivateKey privateKey = null;
     X509Certificate x509cert = null;
+    X509Certificate caCert = null;
+
+    try (InputStream inputStream = new FileInputStream(truststore)) {
+      KeyStore ks = KeyStore.getInstance("JKS");
+      ks.load(inputStream, trustPassword != null ? trustPassword.toCharArray() : null);
+
+      List<String> aliases = Collections.list(ks.aliases());
+      String aliasName = "mykey";
+      LOG.info("alias: {}", aliases);
+      Certificate cert = ks.getCertificate(aliasName);
+      if (cert instanceof X509Certificate) {
+        caCert = (X509Certificate) cert;
+      }
+
+    } catch (Exception e) {
+      LOG.error("error", e);
+      throw new RuntimeException(e);
+    }
+
+
     try (InputStream inputStream = new FileInputStream(keystore)) {
       KeyStore ks = KeyStore.getInstance("JKS");
       ks.load(inputStream, storePassword != null ? storePassword.toCharArray() : null);
 
       List<String> aliases = Collections.list(ks.aliases());
       String aliasName = "certificatekey";
-      LOG.info("alias: {}", aliases);
+      LOG.info("key alias: {}", aliases);
       Key key = ks.getKey(aliasName, keyPassword.toCharArray());
       Certificate cert = ks.getCertificate(aliasName);
 
@@ -382,19 +408,21 @@ public final class RaftJournalSystem extends AbstractJournalSystem {
       if (cert instanceof X509Certificate) {
         x509cert = (X509Certificate) cert;
       }
-      if (privateKey != null && x509cert != null) {
-        X509Certificate cacert = (X509Certificate) ks.getCertificate(aliasName);
-
-        GrpcConfigKeys.TLS.setEnabled(properties, true);
-        GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
-        GrpcConfigKeys.TLS
-            .setConf(parameters, new GrpcTlsConfig(privateKey, x509cert, cacert, true));
-        LOG.info("TLS: {}", parameters);
-      }
-
     } catch (Exception e) {
       LOG.error("error", e);
       throw new RuntimeException(e);
+    }
+
+    if (privateKey != null && x509cert != null && caCert != null) {
+
+      GrpcConfigKeys.TLS.setEnabled(properties, true);
+      GrpcConfigKeys.TLS.setMutualAuthnEnabled(properties, true);
+      GrpcConfigKeys.TLS
+          .setConf(parameters, new GrpcTlsConfig(privateKey, x509cert, caCert, true));
+      LOG.info("TLS: {}", parameters);
+    } else {
+      throw new RuntimeException(
+          String.format("privateKey: %s x509cert: %s caCert: %s", privateKey, x509cert, caCert));
     }
 
   }
