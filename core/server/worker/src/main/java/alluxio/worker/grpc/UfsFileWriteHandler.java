@@ -139,6 +139,7 @@ public final class UfsFileWriteHandler extends AbstractWriteHandler<UfsFileWrite
     if (context.getOutputStream() == null) {
       createUfsFile(context);
     }
+    LOG.info("write to HDFS UFS: bytes: {}", buf.readableBytes());
     buf.readBytes(context.getOutputStream(), buf.readableBytes());
   }
 

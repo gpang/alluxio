@@ -177,6 +177,7 @@ public final class GrpcDataWriter implements DataWriter {
               .add("address", address)
               .toString());
     }
+    LOG.info("created grpc writer stream: fileId: {} stream: {}", mPartialRequest.getId(), mStream);
     mStream.send(WriteRequest.newBuilder().setCommand(mPartialRequest.toBuilder()).build(),
         mDataTimeoutMs);
   }
@@ -194,6 +195,8 @@ public final class GrpcDataWriter implements DataWriter {
           Chunk.newBuilder()
               .setData(UnsafeByteOperations.unsafeWrap(buf.nioBuffer()))
               .build()).build();
+      LOG.info("writeChunk: fileId: {} mPosToQueue: {} stream: {}", mPartialRequest.getId(),
+          mPosToQueue, mStream);
       if (mStream instanceof GrpcDataMessageBlockingStream) {
         ((GrpcDataMessageBlockingStream<WriteRequest, WriteResponse>) mStream)
             .sendDataMessage(new DataMessage<>(request, new NettyDataBuffer(buf)), mDataTimeoutMs);

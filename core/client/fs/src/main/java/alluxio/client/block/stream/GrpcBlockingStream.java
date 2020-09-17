@@ -102,10 +102,12 @@ public class GrpcBlockingStream<ReqT, ResT> {
           break;
         }
         try {
+          LOG.info("Waiting for ready or failed...");
           if (!mReadyOrFailed.await(timeoutMs, TimeUnit.MILLISECONDS)) {
             throw new DeadlineExceededException(
                 formatErrorMessage("Timeout sending request %s after %dms.", request, timeoutMs));
           }
+          LOG.info("   ... done waiting. ready: {}", mRequestObserver.isReady());
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw new CancelledException(formatErrorMessage(
@@ -307,8 +309,10 @@ public class GrpcBlockingStream<ReqT, ResT> {
 
     @Override
     public void beforeStart(ClientCallStreamObserver<ReqT> requestStream) {
+      LOG.info("requestStream.setOnReadyHandler: {}", requestStream, new RuntimeException());
       requestStream.setOnReadyHandler(() -> {
         try (LockResource lr = new LockResource(mLock)) {
+          LOG.info("mReadyOrFailed.signal() requestStream: {}", requestStream);
           mReadyOrFailed.signal();
         }
       });

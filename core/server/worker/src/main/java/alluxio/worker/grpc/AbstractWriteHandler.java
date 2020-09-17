@@ -99,9 +99,11 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
    * @param writeRequest the request from the client
    */
   public void write(WriteRequest writeRequest) {
+    long startMs = System.currentTimeMillis();
     if (!tryAcquireSemaphore()) {
       return;
     }
+    LOG.info("write request acquired semaphore: {}", System.currentTimeMillis() - startMs);
     mSerializingExecutor.execute(() -> {
       try {
         if (mContext == null) {
@@ -122,8 +124,11 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
           return;
         }
         validateWriteRequest(writeRequest);
+        LOG.info("execute write request: started: {} {}", (System.currentTimeMillis() - startMs),
+            mContext);
         if (writeRequest.hasCommand()) {
           WriteRequestCommand command = writeRequest.getCommand();
+          LOG.info("request command: {}", command);
           if (command.getFlush()) {
             flush();
           } else {
@@ -133,6 +138,7 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
           Preconditions.checkState(writeRequest.hasChunk(),
               "write request is missing data chunk in non-command message");
           ByteString data = writeRequest.getChunk().getData();
+          LOG.info("write data: size data.size: {}", data.size());
           Preconditions.checkState(data != null && data.size() > 0,
               "invalid data size from write request message");
           writeData(new NioDataBuffer(data.asReadOnlyByteBuffer(), data.size()));
@@ -142,6 +148,8 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
             writeRequest, e);
         abort(new Error(AlluxioStatusException.fromThrowable(e), true));
       } finally {
+        LOG.info("write command DONE: totalTime: {} {}", (System.currentTimeMillis() - startMs),
+            mContext);
         mSemaphore.release();
       }
     });
@@ -154,6 +162,7 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
    * @param buffer the data associated with the request
    */
   public void writeDataMessage(WriteRequest request, DataBuffer buffer) {
+    long startMs = System.currentTimeMillis();
     if (buffer == null) {
       write(request);
       return;
@@ -165,10 +174,15 @@ abstract class AbstractWriteHandler<T extends WriteRequestContext<?>> {
     if (!tryAcquireSemaphore()) {
       return;
     }
+    LOG.info("write data message acquired semaphore: {}", System.currentTimeMillis() - startMs);
     mSerializingExecutor.execute(() -> {
       try {
+        LOG.info("write data message: started: {} buffer.getLength(): {}",
+            (System.currentTimeMillis() - startMs), buffer.getLength());
         writeData(buffer);
       } finally {
+        LOG.info("data message DONE: totalTime: {} {}", (System.currentTimeMillis() - startMs),
+            mContext);
         mSemaphore.release();
       }
     });

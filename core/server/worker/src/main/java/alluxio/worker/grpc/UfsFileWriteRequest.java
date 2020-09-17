@@ -14,6 +14,8 @@ package alluxio.worker.grpc;
 import alluxio.proto.dataserver.Protocol;
 
 import com.google.common.base.MoreObjects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -22,6 +24,8 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public final class UfsFileWriteRequest extends WriteRequest {
+  private static final Logger LOG = LoggerFactory.getLogger(UfsFileWriteRequest.class);
+
   private final String mUfsPath;
   private final Protocol.CreateUfsFileOptions mCreateUfsFileOptions;
 
@@ -29,6 +33,7 @@ public final class UfsFileWriteRequest extends WriteRequest {
     super(request);
     mUfsPath = request.getCommand().getCreateUfsFileOptions().getUfsPath();
     mCreateUfsFileOptions = request.getCommand().getCreateUfsFileOptions();
+    LOG.info("create request: {}", this);
   }
 
   /**
