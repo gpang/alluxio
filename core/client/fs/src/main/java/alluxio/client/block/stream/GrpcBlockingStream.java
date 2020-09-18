@@ -26,12 +26,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -104,8 +106,18 @@ public class GrpcBlockingStream<ReqT, ResT> {
         try {
           LOG.info("Waiting for ready or failed...");
           if (!mReadyOrFailed.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            String requestString = Arrays.stream(request.toString().split("\n")).map(line -> {
+              int maxLength = 300;
+              if (line.length() > maxLength) {
+                return String
+                    .format("%s ... <truncated %d characters>", line.substring(0, maxLength),
+                        line.length() - maxLength);
+              }
+              return line;
+            }).collect(Collectors.joining("\n"));
             throw new DeadlineExceededException(
-                formatErrorMessage("Timeout sending request %s after %dms.", request, timeoutMs));
+                formatErrorMessage("Timeout sending request %s after %dms.", requestString,
+                    timeoutMs));
           }
           LOG.info("   ... done waiting. ready: {}", mRequestObserver.isReady());
         } catch (InterruptedException e) {
