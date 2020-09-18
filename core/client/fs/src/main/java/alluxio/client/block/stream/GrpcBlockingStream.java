@@ -106,6 +106,7 @@ public class GrpcBlockingStream<ReqT, ResT> {
         try {
           LOG.info("Waiting for ready or failed...");
           if (!mReadyOrFailed.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            LOG.info("   ... done waiting. DeadlineExceededException");
             String requestString = Arrays.stream(request.toString().split("\n")).map(line -> {
               int maxLength = 300;
               if (line.length() > maxLength) {
