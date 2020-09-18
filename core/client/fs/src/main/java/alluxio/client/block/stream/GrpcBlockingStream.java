@@ -128,6 +128,7 @@ public class GrpcBlockingStream<ReqT, ResT> {
         }
       }
     }
+    LOG.info("Sending request. {}", request);
     mRequestObserver.onNext(request);
   }
 
@@ -192,6 +193,7 @@ public class GrpcBlockingStream<ReqT, ResT> {
    * effect.
    */
   public void close() {
+    LOG.info("Closing stream ({})", mDescription);
     if (isOpen()) {
       LOG.debug("Closing stream ({})", mDescription);
       mClosed = true;
@@ -204,6 +206,7 @@ public class GrpcBlockingStream<ReqT, ResT> {
    * effect.
    */
   public void cancel() {
+    LOG.info("Cancelling stream ({})", mDescription);
     if (isOpen()) {
       LOG.debug("Cancelling stream ({})", mDescription);
       mCanceled = true;
