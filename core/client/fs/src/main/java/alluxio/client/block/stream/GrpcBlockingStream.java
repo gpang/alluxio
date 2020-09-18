@@ -107,18 +107,9 @@ public class GrpcBlockingStream<ReqT, ResT> {
           LOG.info("Waiting for ready or failed...");
           if (!mReadyOrFailed.await(timeoutMs, TimeUnit.MILLISECONDS)) {
             LOG.info("   ... done waiting. DeadlineExceededException");
-            String requestString = Arrays.stream(request.toString().split("\n")).map(line -> {
-              int maxLength = 300;
-              if (line.length() > maxLength) {
-                return String
-                    .format("%s ... <truncated %d characters>", line.substring(0, maxLength),
-                        line.length() - maxLength);
-              }
-              return line;
-            }).collect(Collectors.joining("\n"));
             throw new DeadlineExceededException(
-                formatErrorMessage("Timeout sending request %s after %dms.", requestString,
-                    timeoutMs));
+                formatErrorMessage("Timeout sending request %s after %dms.",
+                    truncateRequest(request), timeoutMs));
           }
           LOG.info("   ... done waiting. ready: {}", mRequestObserver.isReady());
         } catch (InterruptedException e) {
@@ -128,7 +119,7 @@ public class GrpcBlockingStream<ReqT, ResT> {
         }
       }
     }
-    LOG.info("Sending request. {}", request);
+    LOG.info("Sending request: {}", truncateRequest(request));
     mRequestObserver.onNext(request);
   }
 
@@ -256,6 +247,19 @@ public class GrpcBlockingStream<ReqT, ResT> {
    */
   public boolean isCanceled() {
     return mCanceled;
+  }
+
+  private String truncateRequest(ReqT request) {
+    String requestString = Arrays.stream(request.toString().split("\n")).map(line -> {
+      int maxLength = 300;
+      if (line.length() > maxLength) {
+        return String
+            .format("%s ... <truncated %d characters>", line.substring(0, maxLength),
+                line.length() - maxLength);
+      }
+      return line;
+    }).collect(Collectors.joining("\n"));
+    return requestString;
   }
 
   private void checkError() throws IOException {
